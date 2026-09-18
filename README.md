@@ -71,6 +71,7 @@ Configure these Supabase Edge Function secrets:
 
 - `TMDB_API_KEY`
 - `WATCHMODE_API_KEY`
+- `OMDB_API_KEY`
 - `METADATA_SYNC_SECRET`
 
 The `metadata-provider` Edge Function exposes controlled server-side search and Watchmode availability lookup. API data does not grant MovieLab streaming rights; playback still requires a valid MovieLab rights record or an authorized provider destination.
