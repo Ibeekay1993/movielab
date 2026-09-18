@@ -41,7 +41,7 @@ async function classifyWithAI(raw: string) {
   if (!res.ok) throw new Error(`Gemini classification failed: ${res.status}`);
   const json = await res.json();
   const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  const cleaned = text.replace(/^\\s*\`\`\`json\\s*/i, "").replace(/\`\`\`\\s*$/,"").trim();
+  const cleaned = text.replace(/^\s*```json\s*/i, "").replace(/```\s*$/,"").trim();
   try {
     const parsed = JSON.parse(cleaned);
     if (!parsed.title || !parsed.type) return null;
@@ -97,7 +97,29 @@ async function ensureTitle(match: any) {
     metadata_provider:"tmdb", metadata_provider_id:String(match.x.id)
   }).select("id").single();
   if (error) throw error;
+  for (const genre of (detail.genres ?? [])) {
+    const slug = String(genre.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const { data: g } = await supabase.from("genres").upsert({ name: genre.name, slug }, { onConflict: "slug" }).select("id").single();
+    if (g) await supabase.from("title_genres").upsert({ title_id: data.id, genre_id: g.id }, { onConflict: "title_id,genre_id" });
+  }
   return data.id;
+}
+
+async function ensureEpisode(titleId: string, episode: { season: number; episode: number }, media: any) {
+  const { data: season, error: seasonError } = await supabase.from("seasons")
+    .upsert({ series_id: titleId, season_number: episode.season }, { onConflict: "series_id,season_number" })
+    .select("id").single();
+  if (seasonError) throw seasonError;
+  const { data: ep, error: episodeError } = await supabase.from("episodes")
+    .upsert({
+      season_id: season.id,
+      episode_number: episode.episode,
+      title: media.extracted_title ?? `Episode ${episode.episode}`,
+      runtime_minutes: media.duration_seconds ?? null
+    }, { onConflict: "season_id,episode_number" })
+    .select("id").single();
+  if (episodeError) throw episodeError;
+  return ep.id;
 }
 
 Deno.serve(async (req) => {
@@ -128,7 +150,7 @@ Deno.serve(async (req) => {
     }
 
     const confidence = Math.min(0.99, ai?.confidence ? (0.65 * ai.confidence + 0.35 * match.score) : match.score);
-    const titleId = await ensureTitle(match);
+    const titleId = await ensureTitle(match);\n    const episodeId = episode && match.x.media_type === "tv" ? await ensureEpisode(titleId, episode, { extracted_title: aiTitle, duration_seconds: media.duration_seconds }) : null;
 
     await supabase.from("telegram_media").update({
       ingestion_status: confidence >= 0.98 ? "matched" : "review",
