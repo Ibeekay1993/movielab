@@ -71,6 +71,8 @@ async function ensureTitle(match: any) {
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+  const expectedSecret = Deno.env.get("TELEGRAM_PROCESSOR_SECRET");
+  if (expectedSecret && req.headers.get("x-movielab-processor-secret") !== expectedSecret) return Response.json({ok:false,error:"Unauthorized"},{status:401});
   const workerId = crypto.randomUUID();
   const { data: job, error: claimError } = await supabase.rpc("claim_telegram_ingestion_job", { worker_id: workerId });
   if (claimError || !job?.id) return Response.json({ ok:true, processed:false });
