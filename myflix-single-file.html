@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyFlix — Stream My Films</title>
+<!--
+  MyFlix - single-file version.
+  Everything (HTML, CSS, JS, movie data) is in this ONE file.
+  Upload this file to GitHub as index.html and enable GitHub Pages
+  (Settings > Pages > Source: main branch).
+
+  VIDEOS: put your .mp4 files in a /videos folder next to this file
+  and update the paths in the MOVIES list below. GitHub blocks files
+  over 100MB - for big files use Bunny Stream/Cloudflare and paste
+  their URLs instead.
+-->
+<style>
+/* ============ MovieBox-style streaming UI ============ */
+:root{
+  --bg:#0d0d0f;
+  --bg-soft:#16161a;
+  --card:#1c1c21;
+  --text:#f5f5f7;
+  --muted:#a3a3ad;
+  --accent:#e50914;
+  --accent-hover:#f6121d;
+  --radius:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+img{display:block;max-width:100%}
+
+/* ---------- NAV ---------- */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;gap:2rem;
+  padding:1rem 4vw;
+  background:linear-gradient(to bottom,rgba(13,13,15,.95),rgba(13,13,15,0));
+  transition:background .3s;
+}
+.nav.scrolled{background:var(--bg);box-shadow:0 2px 12px rgba(0,0,0,.5)}
+.logo{
+  font-size:1.5rem;font-weight:900;letter-spacing:1px;
+  color:var(--accent);
+}
+.nav-links{display:flex;gap:1.5rem;font-size:.95rem;color:var(--muted)}
+.nav-links a:hover{color:var(--text)}
+.search-wrap{margin-left:auto;position:relative}
+.search-input{
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:20px;
+  padding:.5rem 1rem .5rem 2.4rem;
+  color:var(--text);width:220px;outline:none;
+  transition:width .3s,border-color .3s;
+}
+.search-input:focus{width:300px;border-color:var(--accent)}
+.search-icon{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+
+/* ---------- HERO ---------- */
+.hero{
+  position:relative;height:80vh;min-height:520px;
+  display:flex;align-items:flex-end;
+}
+.hero-bg{
+  position:absolute;inset:0;overflow:hidden;
+}
+.hero-bg img{width:100%;height:100%;object-fit:cover}
+.hero-bg::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(to top,var(--bg) 4%,rgba(13,13,15,.35) 45%,rgba(13,13,15,.55) 100%);
+}
+.hero-content{
+  position:relative;z-index:2;
+  padding:0 4vw 6vh;max-width:700px;
+}
+.hero-tag{
+  display:inline-block;background:var(--accent);
+  color:#fff;font-size:.75rem;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;
+  padding:.3rem .8rem;border-radius:4px;margin-bottom:1rem;
+}
+.hero-title{font-size:clamp(2rem,4.5vw,3.6rem);font-weight:900;line-height:1.05;margin-bottom:.8rem;text-shadow:0 2px 20px rgba(0,0,0,.6)}
+.hero-meta{display:flex;gap:1rem;color:var(--muted);font-size:.95rem;margin-bottom:1rem}
+.hero-meta .match{color:#46d369;font-weight:700}
+.hero-desc{color:#d6d6dd;font-size:1.05rem;line-height:1.6;margin-bottom:1.6rem;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+.hero-btns{display:flex;gap:1rem;flex-wrap:wrap}
+.btn{
+  display:inline-flex;align-items:center;gap:.6rem;
+  padding:.8rem 1.8rem;border-radius:6px;
+  font-size:1rem;font-weight:700;
+  transition:transform .15s,background .2s;
+}
+.btn:hover{transform:scale(1.04)}
+.btn-play{background:#fff;color:#000}
+.btn-more{background:rgba(255,255,255,.25);color:#fff;backdrop-filter:blur(4px)}
+.btn-more:hover{background:rgba(255,255,255,.35)}
+
+/* ---------- ROWS ---------- */
+.rows{padding:2rem 0 4rem}
+.row{margin-top:2.2rem}
+.row-header{
+  display:flex;align-items:baseline;justify-content:space-between;
+  padding:0 4vw;margin-bottom:1rem;
+}
+.row-title{font-size:1.35rem;font-weight:800}
+.row-scroll{
+  display:flex;gap:.9rem;overflow-x:auto;
+  padding:.4rem 4vw 1rem;
+  scroll-behavior:smooth;
+  scrollbar-width:none;
+}
+.row-scroll::-webkit-scrollbar{display:none}
+.card{
+  position:relative;flex:0 0 170px;border-radius:var(--radius);
+  overflow:hidden;background:var(--card);
+  transition:transform .25s,box-shadow .25s;
+  cursor:pointer;
+}
+@media(min-width:900px){.card{flex-basis:200px}}
+.card:hover{transform:translateY(-8px) scale(1.03);box-shadow:0 14px 30px rgba(0,0,0,.55);z-index:2}
+.card img{width:100%;aspect-ratio:2/3;object-fit:cover}
+.card-overlay{
+  position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(0,0,0,.92) 10%,rgba(0,0,0,.15) 55%,transparent);
+  display:flex;flex-direction:column;justify-content:flex-end;
+  padding:.9rem;opacity:0;transition:opacity .25s;
+}
+.card:hover .card-overlay{opacity:1}
+.card-title{font-weight:800;font-size:.95rem;margin-bottom:.25rem}
+.card-meta{color:var(--muted);font-size:.75rem;display:flex;gap:.6rem;margin-bottom:.5rem}
+.card-play{
+  align-self:flex-start;
+  background:var(--accent);color:#fff;
+  font-size:.75rem;font-weight:700;
+  padding:.35rem .9rem;border-radius:4px;
+  display:flex;align-items:center;gap:.4rem;
+}
+.empty-row{color:var(--muted);padding:0 4vw;font-size:.95rem}
+
+/* ---------- MODAL / PLAYER ---------- */
+.modal{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.85);backdrop-filter:blur(6px);
+  display:none;align-items:center;justify-content:center;
+  padding:2vh 2vw;
+}
+.modal.open{display:flex}
+.modal-box{
+  width:min(960px,100%);max-height:96vh;overflow-y:auto;
+  background:var(--bg-soft);border-radius:12px;
+  animation:pop .25s ease;
+}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-hero{position:relative;aspect-ratio:16/9;background:#000}
+.modal-hero video,.modal-hero img{width:100%;height:100%;object-fit:cover}
+.modal-close{
+  position:absolute;top:.8rem;right:.8rem;z-index:3;
+  width:38px;height:38px;border-radius:50%;
+  background:rgba(0,0,0,.6);color:#fff;font-size:1.2rem;
+  display:flex;align-items:center;justify-content:center;
+}
+.modal-close:hover{background:var(--accent)}
+.modal-body{padding:1.6rem 2rem 2rem}
+.modal-body h2{font-size:1.8rem;margin-bottom:.6rem}
+.modal-meta{display:flex;gap:1rem;color:var(--muted);font-size:.9rem;margin-bottom:1rem}
+.modal-meta .match{color:#46d369;font-weight:700}
+.modal-body p{color:#cfcfd6;line-height:1.65;max-width:720px}
+
+/* ---------- FOOTER ---------- */
+footer{
+  padding:3rem 4vw;color:var(--muted);font-size:.85rem;
+  border-top:1px solid rgba(255,255,255,.08);
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;
+}
+
+/* ---------- SEARCH RESULTS ---------- */
+.results-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:1.1rem;padding:7rem 4vw 3rem;
+}
+.results-title{padding:7rem 4vw 0;font-size:1.6rem;font-weight:800}
+
+/* ---------- EPISODE LIST ---------- */
+.episodes-wrap{padding:1.4rem 2rem 0}
+.season-block{margin-bottom:1.4rem}
+.season-title{font-size:1.1rem;margin-bottom:.6rem;color:var(--text)}
+.episode{
+  display:flex;align-items:center;gap:1rem;
+  padding:.7rem .8rem;border-radius:8px;cursor:pointer;
+  transition:background .15s;
+}
+.episode:hover{background:rgba(255,255,255,.07)}
+.ep-num{
+  width:34px;height:34px;flex:0 0 34px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.85rem;color:var(--muted);
+}
+.ep-info{flex:1}
+.ep-name{font-weight:600;font-size:.95rem}
+.ep-dur{color:var(--muted);font-size:.8rem}
+.ep-play{color:var(--accent);font-size:1rem;width:28px;text-align:center}
+.ep-label{font-size:1rem;color:var(--muted);font-weight:500}
+@media(max-width:600px){
+  .episodes-wrap,.modal-body{padding-left:1rem;padding-right:1rem}
+}
+
+/* ---------- MY LIST + HOVER PREVIEW ---------- */
+.card{position:relative}
+.card-preview{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;
+}
+.card-overlay{z-index:2}
+.card-actions{display:flex;align-items:center;gap:.5rem}
+.list-btn{
+  width:28px;height:28px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.5);color:#fff;
+  font-size:1rem;line-height:1;display:flex;align-items:center;justify-content:center;
+  transition:background .2s,border-color .2s;
+}
+.list-btn:hover{border-color:#fff;background:rgba(255,255,255,.15)}
+.list-btn.in-list{background:var(--accent);border-color:var(--accent);color:#fff}
+
+</style>
+</head>
+<body>
+
+  <nav class="nav" id="nav">
+    <a href="#" class="logo">MYFLIX</a>
+    <div class="nav-links">
+      <a href="#">Home</a>
+      <a href="#rows">Movies</a>
+      <a href="#">My List</a>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" id="searchInput" class="search-input" placeholder="Search titles...">
+    </div>
+  </nav>
+
+  <header class="hero" id="hero"></header>
+  <main class="rows" id="rows"></main>
+  <div class="modal" id="modal"></div>
+
+  <footer>
+    <span>&copy; 2026 MyFlix. All films are my own original content.</span>
+    <span>Single-file build</span>
+  </footer>
+
+<script>
+// ============================================================
+//  EDIT THIS FILE to add your own movies & series.
+//  - Put video files in /videos (mp4/webm)
+//  - Posters: /assets/posters (2:3)   Backdrops: /assets/backdrops (16:9)
+//  - For a SERIES: set type:"series" and add seasons/episodes.
+//    Each episode has its own video file.
+// ============================================================
+const MOVIES = [
+  {
+    id: 1,
+    title: "Film One",
+    year: 2026,
+    rating: "PG",
+    duration: "1h 42m",
+    genre: "Drama",
+    categories: ["trending", "drama"],
+    description: "A short compelling description of your first film goes here.",
+    poster: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNzUwIiB2aWV3Qm94PSIwIDAgNTAwIDc1MCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgo8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNlNTA5MTQiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM3YTBiYzAiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI3NTAiIGZpbGw9InVybCgjZykiLz4KPHRleHQgeD0iMjUwIiB5PSIzNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtc2l6ZT0iNDIiIGZvbnQtd2VpZ2h0PSI5MDAiCiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GSUxNIE9ORTwvdGV4dD4KPHRleHQgeD0iMjUwIiB5PSI0MjAiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC43KSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5SZXBsYWNlIHdpdGggeW91ciBwb3N0ZXI8L3RleHQ+Cjwvc3ZnPg==",
+    backdrop: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNjAwIiBoZWlnaHQ9IjkwMCIgdmlld0JveD0iMCAwIDE2MDAgOTAwIj4KPGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+CjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzFhMWEyZSIvPjxzdG9wIG9mZnNldD0iMC41IiBzdG9wLWNvbG9yPSIjMTYyMTNlIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMGYzNDYwIi8+PC9saW5lYXJHcmFkaWVudD4KPHJhZGlhbEdyYWRpZW50IGlkPSJnbG93IiBjeD0iMC43NSIgY3k9IjAuNCIgcj0iMC42Ij4KPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjZTUwOTE0IiBzdG9wLW9wYWNpdHk9IjAuMzUiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNlNTA5MTQiIHN0b3Atb3BhY2l0eT0iMCIvPjwvcmFkaWFsR3JhZGllbnQ+PC9kZWZzPgo8cmVjdCB3aWR0aD0iMTYwMCIgaGVpZ2h0PSI5MDAiIGZpbGw9InVybCgjZykiLz48cmVjdCB3aWR0aD0iMTYwMCIgaGVpZ2h0PSI5MDAiIGZpbGw9InVybCgjZ2xvdykiLz4KPGNpcmNsZSBjeD0iMTIwMCIgY3k9IjM4MCIgcj0iMjAwIiBmaWxsPSJub25lIiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC4wOCkiIHN0cm9rZS13aWR0aD0iMiIvPgo8Y2lyY2xlIGN4PSIxMjAwIiBjeT0iMzgwIiByPSIxNDAiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNCkiLz4KPHBvbHlnb24gcG9pbnRzPSIxMTYwLDMyMCAxMTYwLDQ0MCAxMjYwLDM4MCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjI1KSIvPgo8dGV4dCB4PSIxMjAiIHk9Ijc4MCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjg1KSIgZm9udC1mYW1pbHk9IkFyaWFsIEJsYWNrLEFyaWFsIiBmb250LXNpemU9IjY0IiBmb250LXdlaWdodD0iOTAwIj5ZT1VSIEZFQVRVUkVEIFRJVExFPC90ZXh0Pgo8dGV4dCB4PSIxMjQiIHk9IjgzMCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjU1KSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI2Ij5SZXBsYWNlIHRoaXMgYmFja2Ryb3Agd2l0aCBhIHN0aWxsIGZyb20geW91ciBmaWxtICgxNjAww5c5MDApPC90ZXh0Pgo8L3N2Zz4=",
+    video: "videos/film-one.mp4",
+    preview: "videos/film-one-preview.mp4",
+    type: "movie",
+    featured: true
+  },
+  {
+    id: 2,
+    title: "My Series",
+    year: 2026,
+    rating: "PG-13",
+    genre: "Drama",
+    categories: ["trending", "drama"],
+    description: "Logline for your original series. One or two hook sentences.",
+    poster: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNzUwIiB2aWV3Qm94PSIwIDAgNTAwIDc1MCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgo8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMwZjRjODEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxMmMyZTkiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI3NTAiIGZpbGw9InVybCgjZykiLz4KPHRleHQgeD0iMjUwIiB5PSIzNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtc2l6ZT0iNDIiIGZvbnQtd2VpZ2h0PSI5MDAiCiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GSUxNIFRXTzwvdGV4dD4KPHRleHQgeD0iMjUwIiB5PSI0MjAiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC43KSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5SZXBsYWNlIHdpdGggeW91ciBwb3N0ZXI8L3RleHQ+Cjwvc3ZnPg==",
+    backdrop: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNzUwIiB2aWV3Qm94PSIwIDAgNTAwIDc1MCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgo8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMwZjRjODEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxMmMyZTkiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI3NTAiIGZpbGw9InVybCgjZykiLz4KPHRleHQgeD0iMjUwIiB5PSIzNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtc2l6ZT0iNDIiIGZvbnQtd2VpZ2h0PSI5MDAiCiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GSUxNIFRXTzwvdGV4dD4KPHRleHQgeD0iMjUwIiB5PSI0MjAiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC43KSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5SZXBsYWNlIHdpdGggeW91ciBwb3N0ZXI8L3RleHQ+Cjwvc3ZnPg==",
+    preview: "videos/myseries-preview.mp4",
+    type: "series",
+    seasons: [
+      { number: 1, episodes: [
+        { number: 1, title: "Pilot",              duration: "42m", video: "videos/s01e01.mp4" },
+        { number: 2, title: "The Next Step",      duration: "40m", video: "videos/s01e02.mp4" },
+        { number: 3, title: "Turning Point",      duration: "44m", video: "videos/s01e03.mp4" },
+        { number: 4, title: "What Lies Beneath",  duration: "41m", video: "videos/s01e04.mp4" },
+      ]},
+      { number: 2, episodes: [
+        { number: 1, title: "New Beginnings",     duration: "45m", video: "videos/s02e01.mp4" },
+        { number: 2, title: "Old Ghosts",         duration: "43m", video: "videos/s02e02.mp4" },
+      ]},
+    ]
+  },
+  {
+    id: 3,
+    title: "Film Three",
+    year: 2025,
+    rating: "G",
+    duration: "1h 15m",
+    genre: "Comedy",
+    categories: ["comedy"],
+    description: "Logline for your third film.",
+    poster: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNzUwIiB2aWV3Qm94PSIwIDAgNTAwIDc1MCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgo8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmMjk5NGEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNlYjU3NTciLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI3NTAiIGZpbGw9InVybCgjZykiLz4KPHRleHQgeD0iMjUwIiB5PSIzNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtc2l6ZT0iNDIiIGZvbnQtd2VpZ2h0PSI5MDAiCiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GSUxNIFRIUkVFPC90ZXh0Pgo8dGV4dCB4PSIyNTAiIHk9IjQyMCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjcpIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlJlcGxhY2Ugd2l0aCB5b3VyIHBvc3RlcjwvdGV4dD4KPC9zdmc+",
+    backdrop: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNzUwIiB2aWV3Qm94PSIwIDAgNTAwIDc1MCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgo8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmMjk5NGEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNlYjU3NTciLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI3NTAiIGZpbGw9InVybCgjZykiLz4KPHRleHQgeD0iMjUwIiB5PSIzNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtc2l6ZT0iNDIiIGZvbnQtd2VpZ2h0PSI5MDAiCiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GSUxNIFRIUkVFPC90ZXh0Pgo8dGV4dCB4PSIyNTAiIHk9IjQyMCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjcpIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlJlcGxhY2Ugd2l0aCB5b3VyIHBvc3RlcjwvdGV4dD4KPC9zdmc+",
+    video: "videos/film-three.mp4",
+    type: "movie"
+  },
+  {
+    id: 4,
+    title: "Film Four",
+    year: 2026,
+    rating: "PG",
+    duration: "2h 05m",
+    genre: "Action",
+    categories: ["trending", "action"],
+    description: "Logline for your fourth film.",
+    poster: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNzUwIiB2aWV3Qm94PSIwIDAgNTAwIDc1MCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgo8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMxMTk5OGUiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMzOGVmN2QiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI3NTAiIGZpbGw9InVybCgjZykiLz4KPHRleHQgeD0iMjUwIiB5PSIzNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtc2l6ZT0iNDIiIGZvbnQtd2VpZ2h0PSI5MDAiCiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GSUxNIEZPVVI8L3RleHQ+Cjx0ZXh0IHg9IjI1MCIgeT0iNDIwIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNykiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+UmVwbGFjZSB3aXRoIHlvdXIgcG9zdGVyPC90ZXh0Pgo8L3N2Zz4=",
+    backdrop: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNzUwIiB2aWV3Qm94PSIwIDAgNTAwIDc1MCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgo8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMxMTk5OGUiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMzOGVmN2QiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI3NTAiIGZpbGw9InVybCgjZykiLz4KPHRleHQgeD0iMjUwIiB5PSIzNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtc2l6ZT0iNDIiIGZvbnQtd2VpZ2h0PSI5MDAiCiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GSUxNIEZPVVI8L3RleHQ+Cjx0ZXh0IHg9IjI1MCIgeT0iNDIwIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNykiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+UmVwbGFjZSB3aXRoIHlvdXIgcG9zdGVyPC90ZXh0Pgo8L3N2Zz4=",
+    video: "videos/film-four.mp4",
+    type: "movie"
+  },
+  {
+    id: 5,
+    title: "Film Five",
+    year: 2025,
+    rating: "PG-13",
+    duration: "1h 33m",
+    genre: "Drama",
+    categories: ["drama"],
+    description: "Logline for your fifth film.",
+    poster: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNzUwIiB2aWV3Qm94PSIwIDAgNTAwIDc1MCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgo8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM4ZTJkZTIiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM0YTAwZTAiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI3NTAiIGZpbGw9InVybCgjZykiLz4KPHRleHQgeD0iMjUwIiB5PSIzNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtc2l6ZT0iNDIiIGZvbnQtd2VpZ2h0PSI5MDAiCiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GSUxNIEZJVkU8L3RleHQ+Cjx0ZXh0IHg9IjI1MCIgeT0iNDIwIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNykiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+UmVwbGFjZSB3aXRoIHlvdXIgcG9zdGVyPC90ZXh0Pgo8L3N2Zz4=",
+    backdrop: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNzUwIiB2aWV3Qm94PSIwIDAgNTAwIDc1MCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgo8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM4ZTJkZTIiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM0YTAwZTAiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI3NTAiIGZpbGw9InVybCgjZykiLz4KPHRleHQgeD0iMjUwIiB5PSIzNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtc2l6ZT0iNDIiIGZvbnQtd2VpZ2h0PSI5MDAiCiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GSUxNIEZJVkU8L3RleHQ+Cjx0ZXh0IHg9IjI1MCIgeT0iNDIwIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNykiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+UmVwbGFjZSB3aXRoIHlvdXIgcG9zdGVyPC90ZXh0Pgo8L3N2Zz4=",
+    video: "videos/film-five.mp4",
+    type: "movie"
+  },
+  {
+    id: 6,
+    title: "Film Six",
+    year: 2026,
+    rating: "R",
+    duration: "1h 47m",
+    genre: "Thriller",
+    categories: ["thriller"],
+    description: "Logline for your sixth film.",
+    poster: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNzUwIiB2aWV3Qm94PSIwIDAgNTAwIDc1MCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgo8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmYzRhMWEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmN2I3MzMiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI3NTAiIGZpbGw9InVybCgjZykiLz4KPHRleHQgeD0iMjUwIiB5PSIzNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtc2l6ZT0iNDIiIGZvbnQtd2VpZ2h0PSI5MDAiCiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GSUxNIFNJWDwvdGV4dD4KPHRleHQgeD0iMjUwIiB5PSI0MjAiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC43KSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5SZXBsYWNlIHdpdGggeW91ciBwb3N0ZXI8L3RleHQ+Cjwvc3ZnPg==",
+    backdrop: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNzUwIiB2aWV3Qm94PSIwIDAgNTAwIDc1MCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgo8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmYzRhMWEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmN2I3MzMiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI3NTAiIGZpbGw9InVybCgjZykiLz4KPHRleHQgeD0iMjUwIiB5PSIzNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtc2l6ZT0iNDIiIGZvbnQtd2VpZ2h0PSI5MDAiCiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GSUxNIFNJWDwvdGV4dD4KPHRleHQgeD0iMjUwIiB5PSI0MjAiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC43KSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5SZXBsYWNlIHdpdGggeW91ciBwb3N0ZXI8L3RleHQ+Cjwvc3ZnPg==",
+    video: "videos/film-six.mp4",
+    type: "movie"
+  }
+];
+
+</script>
+<script>
+const nav = document.getElementById("nav");
+const heroEl = document.getElementById("hero");
+const rowsEl = document.getElementById("rows");
+const searchInput = document.getElementById("searchInput");
+const modal = document.getElementById("modal");
+
+/* ============ Continue Watching (saved in browser) ============ */
+const CW_KEY = "myflix_progress";
+const loadCW = () => JSON.parse(localStorage.getItem(CW_KEY) || "{}");
+const saveCW = (data) => localStorage.setItem(CW_KEY, JSON.stringify(data));
+
+function cwKey(id, ep) { return ep ? `${id}-s${ep.s}e${ep.e}` : `${id}`; }
+
+function trackProgress(video, id, ep) {
+  const data = loadCW();
+  const k = cwKey(id, ep);
+  // resume from saved spot
+  if (data[k] && data[k].time > 5 && !data[k].finished) {
+    video.currentTime = data[k].time;
+  }
+  video.addEventListener("timeupdate", () => {
+    const d = loadCW();
+    const item = MOVIES.find(m => m.id === id);
+    d[k] = {
+      time: video.currentTime,
+      finished: video.duration && video.currentTime / video.duration > 0.92,
+      title: item.title,
+      poster: item.poster,
+      ep: ep ? `S${ep.s}:E${ep.e} "${item.seasons[ep.s-1].episodes[ep.e-1].title}"` : null,
+      updated: Date.now()
+    };
+    saveCW(d);
+  });
+}
+
+function renderContinueWatching() {
+  const data = loadCW();
+  const items = Object.entries(data)
+    .filter(([, v]) => v.time > 20 && !v.finished)
+    .sort((a, b) => b[1].updated - a[1].updated)
+    .slice(0, 12);
+  if (!items.length) return "";
+  return `
+    <section class="row">
+      <div class="row-header"><h2 class="row-title">Continue Watching</h2></div>
+      <div class="row-scroll">
+        ${items.map(([k, v]) => `
+          <div class="card" onclick="resume('${k}')">
+            <img src="${v.poster}" alt="${v.title}">
+            <div class="card-overlay">
+              <div class="card-title">${v.title}</div>
+              <div class="card-meta"><span>${v.ep || "Movie"}</span></div>
+              <span class="card-play">&#9654; Resume</span>
+            </div>
+          </div>`).join("")}
+      </div>
+    </section>`;
+}
+function resume(k) {
+  const [idPart, epPart] = k.split("-");
+  const id = parseInt(idPart);
+  if (epPart) {
+    const m = epPart.match(/s(\d+)e(\d+)/);
+    playEpisode(id, parseInt(m[1]), parseInt(m[2]));
+  } else openPlayer(id);
+}
+
+window.addEventListener("scroll", () => {
+  nav.classList.toggle("scrolled", window.scrollY > 40);
+});
+
+
+/* ============ MY LIST (saved in browser) ============ */
+const ML_KEY = "myflix_mylist";
+const loadML = () => JSON.parse(localStorage.getItem(ML_KEY) || "[]");
+const saveML = (ids) => localStorage.setItem(ML_KEY, JSON.stringify(ids));
+const inList = (id) => loadML().includes(id);
+
+function toggleList(id, btn) {
+  let ids = loadML();
+  if (ids.includes(id)) { ids = ids.filter(x => x !== id); }
+  else ids.push(id);
+  saveML(ids);
+  if (btn) btn.classList.toggle("in-list", ids.includes(id));
+  renderRows();
+}
+
+function renderMyList() {
+  const items = loadML().map(id => MOVIES.find(m => m.id === id)).filter(Boolean);
+  if (!items.length) return "";
+  return `
+    <section class="row">
+      <div class="row-header"><h2 class="row-title">My List</h2></div>
+      <div class="row-scroll">${items.map(cardHTML).join("")}</div>
+    </section>`;
+}
+
+/* ============ HERO ============ */
+function renderHero() {
+  const f = MOVIES.find(m => m.featured) || MOVIES[0];
+  heroEl.innerHTML = `
+    <div class="hero-bg"><img src="${f.backdrop}" alt="${f.title}"></div>
+    <div class="hero-content">
+      <span class="hero-tag">${f.type === "series" ? "Original Series" : "Featured Film"}</span>
+      <h1 class="hero-title">${f.title}</h1>
+      <div class="hero-meta">
+        <span class="match">New</span><span>${f.year}</span>
+        <span>${f.rating}</span><span>${f.genre}</span>
+      </div>
+      <p class="hero-desc">${f.description}</p>
+      <div class="hero-btns">
+        <button class="btn btn-play" onclick="${f.type === "series" ? `playEpisode(${f.id},1,1)` : `openPlayer(${f.id})`}">&#9654; ${f.type === "series" ? "Play S1:E1" : "Play"}</button>
+        <button class="btn btn-more" onclick="openDetails(${f.id})">More Info</button>
+      </div>
+    </div>`;
+}
+
+/* ============ ROWS ============ */
+const ROWS = [
+  { key: "trending", title: "Trending Now" },
+  { key: "action",   title: "Action" },
+  { key: "drama",    title: "Drama" },
+  { key: "comedy",   title: "Comedy" },
+  { key: "thriller", title: "Thrillers" },
+];
+
+function cardHTML(m) {
+  const previewTag = m.preview ? `data-preview="${m.preview}"` : "";
+  const listBtn = `<button class="list-btn ${inList(m.id) ? "in-list" : ""}" title="My List"
+      onclick="event.stopPropagation(); toggleList(${m.id}, this)">${inList(m.id) ? "&#10003;" : "+"}</button>`;
+  return `
+    <div class="card" onclick="openDetails(${m.id})" ${previewTag}
+         onmouseenter="cardHover(this)" onmouseleave="cardLeave(this)">
+      <img src="${m.poster}" alt="${m.title}" loading="lazy">
+      <div class="card-overlay">
+        <div class="card-title">${m.title}</div>
+        <div class="card-meta"><span>${m.year}</span><span>${m.rating}</span><span>${m.type === "series" ? m.seasons.length + " Season" + (m.seasons.length > 1 ? "s" : "") : m.duration}</span></div>
+        <div class="card-actions">
+          <span class="card-play">&#9654; ${m.type === "series" ? "Episodes" : "Play"}</span>
+          ${listBtn}
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---------- hover video preview (Netflix-style) ---------- */
+function cardHover(card) {
+  const src = card.dataset.preview;
+  if (!src) return;
+  const v = document.createElement("video");
+  v.src = src; v.muted = true; v.loop = true; v.playsInline = true;
+  v.className = "card-preview";
+  card.appendChild(v);
+  v.play().catch(() => {});
+}
+function cardLeave(card) {
+  const v = card.querySelector("video.card-preview");
+  if (v) { v.pause(); v.remove(); }
+}
+
+function renderRows() {
+  rowsEl.innerHTML = renderContinueWatching() + renderMyList() + ROWS.map(r => {
+    const items = MOVIES.filter(m => m.categories.includes(r.key));
+    if (!items.length) return "";
+    return `
+      <section class="row">
+        <div class="row-header"><h2 class="row-title">${r.title}</h2></div>
+        <div class="row-scroll">${items.map(cardHTML).join("")}</div>
+      </section>`;
+  }).join("");
+}
+
+/* ============ DETAILS PAGE (modal) ============ */
+function openDetails(id) {
+  const m = MOVIES.find(x => x.id === id);
+  if (!m) return;
+  const body = m.type === "series"
+    ? seriesDetailsHTML(m)
+    : `
+      <div class="modal-hero">
+        <video src="${m.video}" controls autoplay poster="${m.backdrop}" id="detailVideo"></video>
+        <button class="modal-close" onclick="closeModal()">&#10005;</button>
+      </div>`;
+  modal.innerHTML = `<div class="modal-box">${body}
+      <div class="modal-body">
+        <h2>${m.title}</h2>
+        <div class="modal-meta">
+          <span class="match">New</span><span>${m.year}</span>
+          <span>${m.rating}</span><span>${m.genre}</span>
+        </div>
+        <p>${m.description}</p>
+        <div style="margin-top:1.2rem">
+          <button class="btn btn-more" onclick="toggleList(${m.id}, this)">
+            ${inList(m.id) ? "&#10003; In My List" : "+ My List"}
+          </button>
+        </div>
+      </div></div>`;
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+  const v = document.getElementById("detailVideo");
+  if (v) trackProgress(v, m.id, null);
+}
+
+function seriesDetailsHTML(m) {
+  const seasons = m.seasons.map(s => `
+    <div class="season-block">
+      <h3 class="season-title">Season ${s.number}</h3>
+      ${s.episodes.map(e => `
+        <div class="episode" onclick="playEpisode(${m.id},${s.number},${e.number})">
+          <span class="ep-num">${e.number}</span>
+          <div class="ep-info">
+            <div class="ep-name">${e.title}</div>
+            <div class="ep-dur">${e.duration}</div>
+          </div>
+          <span class="ep-play">&#9654;</span>
+        </div>`).join("")}
+    </div>`).join("");
+  return `
+    <div class="modal-hero">
+      <img src="${m.backdrop}" alt="${m.title}">
+      <button class="modal-close" onclick="closeModal()">&#10005;</button>
+    </div>
+    <div class="episodes-wrap">${seasons}</div>`;
+}
+
+/* ============ PLAYER ============ */
+function playEpisode(id, sNum, eNum) {
+  const m = MOVIES.find(x => x.id === id);
+  const ep = m.seasons[sNum - 1].episodes[eNum - 1];
+  openPlayer(id, { s: sNum, e: eNum, video: ep.video,
+    label: `S${sNum}:E${eNum} "${ep.title}"` });
+}
+function openPlayer(id, ep = null) {
+  const m = MOVIES.find(x => x.id === id);
+  if (!m) return;
+  const videoSrc = ep ? ep.video : m.video;
+  const subtitle = ep ? ep.label : "";
+  modal.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-hero">
+        <video src="${videoSrc}" controls autoplay poster="${m.backdrop}" id="playerVideo"></video>
+        <button class="modal-close" onclick="closeModal()">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <h2>${m.title} ${subtitle ? `<span class="ep-label">${subtitle}</span>` : ""}</h2>
+        <div class="modal-meta">
+          <span class="match">New</span><span>${m.year}</span>
+          <span>${m.rating}</span><span>${m.genre}</span>
+        </div>
+        <p>${m.description}</p>
+      </div>
+    </div>`;
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+  trackProgress(document.getElementById("playerVideo"), m.id,
+    ep ? { s: ep.s, e: ep.e } : null);
+}
+function closeModal() {
+  modal.classList.remove("open");
+  modal.innerHTML = "";
+  document.body.style.overflow = "";
+  renderRows(); // refresh Continue Watching row
+}
+modal.addEventListener("click", e => { if (e.target === modal) closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+/* ============ SEARCH ============ */
+let searching = false;
+searchInput.addEventListener("input", () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (q.length < 2) {
+    if (searching) { searching = false; heroEl.style.display = ""; renderRows(); }
+    return;
+  }
+  searching = true;
+  heroEl.style.display = "none";
+  const hits = MOVIES.filter(m =>
+    m.title.toLowerCase().includes(q) || m.genre.toLowerCase().includes(q));
+  rowsEl.innerHTML = `
+    <h2 class="results-title">Results for "${searchInput.value.trim()}"</h2>
+    <div class="results-grid">${hits.map(cardHTML).join("") || `<p class="empty-row">No matches found.</p>`}</div>`;
+  window.scrollTo({ top: 0 });
+});
+
+/* ============ INIT ============ */
+renderHero();
+renderRows();
+
+</script>
+</body>
+</html>
