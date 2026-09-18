@@ -24,3 +24,36 @@ npm install
 npm run dev
 npm run build
 npm test
+
+## Telegram ingestion
+
+MovieLab includes a permission-gated Telegram ingestion pipeline for channels and groups that MovieLab is authorized to use.
+
+Flow:
+
+`Telegram → telegram-webhook → telegram_media → ingestion job → AI classification → TMDB metadata → Supabase catalogue → media_assets`
+
+The webhook accepts video messages from registered, active, permission-confirmed sources. Each source can independently enable `auto_publish`. High-confidence AI matches can then be published automatically; uncertain matches remain in review.
+
+### Supabase Edge Function secrets
+
+- `TELEGRAM_BOT_TOKEN` — bot token used by the webhook registration function.
+- `TELEGRAM_WEBHOOK_SECRET` — secret Telegram sends with webhook requests.
+- `TELEGRAM_PROCESSOR_SECRET` — internal secret protecting the ingestion processor.
+- `TELEGRAM_PROCESSOR_URL` — deployed URL of `process-telegram-ingestion`.
+- `TMDB_API_KEY` — metadata/artwork lookup.
+- `GEMINI_API_KEY` — AI title/series/episode classification.
+- `GEMINI_MODEL` — optional, defaults to `gemini-2.5-flash`.
+
+The Telegram Bot API supports `channel_post` updates and webhook secret tokens; the connector therefore requires the bot to have the access Telegram permits for the source chat. A user account/MTProto connector is a separate adapter and should only be enabled for sources MovieLab is authorized to ingest.
+
+### Deployment sequence
+
+1. Apply the catalogue and Telegram migrations.
+2. Deploy `telegram-webhook`, `process-telegram-ingestion`, and `telegram-register-webhook`.
+3. Configure the secrets above.
+4. Register each authorized channel/group in `telegram_channels`.
+5. Set `permission_confirmed=true` only after the source owner has authorized MovieLab.
+6. Set `status='active'`.
+7. Enable `auto_publish=true` only for sources whose content MovieLab is authorized to publish automatically.
+8. Register the Telegram webhook with the deployed webhook URL.
