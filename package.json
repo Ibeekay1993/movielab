@@ -4,6 +4,6 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {"dev":"vite","build":"tsc -b && vite build","preview":"vite preview","test":"vitest run","test:watch":"vitest"},
-  "dependencies": {"@vitejs/plugin-react":"^5.0.2","vite":"^7.1.5","typescript":"^5.9.2","react":"^19.1.1","react-dom":"^19.1.1","react-router-dom":"^7.8.2","lucide-react":"^0.544.0"},
+  "dependencies": {"@vitejs/plugin-react":"^5.0.2","vite":"^7.1.5","typescript":"^5.9.2","react":"^19.1.1","react-dom":"^19.1.1","react-router-dom":"^7.8.2","lucide-react":"^0.544.0","@supabase/supabase-js":"^2.57.4"},
   "devDependencies": {"vitest":"^3.2.4","@testing-library/react":"^16.3.0","@testing-library/jest-dom":"^6.8.0","jsdom":"^26.1.0"}
 }
