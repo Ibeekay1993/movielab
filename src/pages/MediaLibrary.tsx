@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { UploadCloud, Film, CheckCircle2, AlertCircle, LoaderCircle } from "lucide-react";
-import * as tus from "tus-js-client";
+import { Upload } from "tus-js-client";
 import { supabase } from "../lib/supabase";
 
 export default function MediaLibrary() {
@@ -26,7 +26,7 @@ export default function MediaLibrary() {
     if(res.error || !res.data?.upload_url){setError(res.error?.message ?? res.data?.error ?? "Could not create upload.");setStatus("");return;}
     setStatus("Uploading and processing…");
     await new Promise<void>((resolve,reject)=>{
-      const uploader=new tus.Upload(file,{
+      const uploader=new Upload(file,{
         uploadUrl:res.data.upload_url,
         retryDelays:[0,1000,3000,5000,10000],
         metadata:{filename:file.name,filetype:file.type||"video/mp4"},
