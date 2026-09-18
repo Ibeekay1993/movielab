@@ -7,6 +7,7 @@ create table if not exists public.telegram_channels (
   connection_mode text not null default 'bot' check (connection_mode in ('bot','mtproto')),
   status text not null default 'pending' check (status in ('pending','active','paused','revoked')),
   permission_confirmed boolean not null default false,
+  auto_publish boolean not null default false,
   permission_confirmed_at timestamptz,
   permission_notes text,
   last_event_at timestamptz,
