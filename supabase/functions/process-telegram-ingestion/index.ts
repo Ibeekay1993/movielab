@@ -27,6 +27,37 @@ function parseYear(input: string) {
   return m ? Number(m[1]) : null;
 }
 
+async function classifyWithAI(raw: string) {
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) return null;
+  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
+  const prompt = `Identify the movie or TV episode represented by this Telegram filename/caption. Return ONLY JSON with keys: title, year, type, season, episode, confidence. type must be movie or series. Do not invent a title. If uncertain, lower confidence.\n\nINPUT: ${raw}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+  });
+  if (!res.ok) throw new Error(`Gemini classification failed: ${res.status}`);
+  const json = await res.json();
+  const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const cleaned = text.replace(/^\\s*\`\`\`json\\s*/i, "").replace(/\`\`\`\\s*$/,"").trim();
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (!parsed.title || !parsed.type) return null;
+    return {
+      title: String(parsed.title),
+      year: parsed.year ? Number(parsed.year) : null,
+      type: parsed.type === "series" ? "series" : "movie",
+      season: parsed.season ? Number(parsed.season) : null,
+      episode: parsed.episode ? Number(parsed.episode) : null,
+      confidence: Math.max(0, Math.min(1, Number(parsed.confidence ?? 0))),
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function tmdbSearch(query: string, year: number | null) {
   const key = Deno.env.get("TMDB_API_KEY");
   if (!key) return null;
@@ -82,9 +113,13 @@ Deno.serve(async (req) => {
 
     const raw = [media.file_name, media.caption].filter(Boolean).join(" ");
     const extractedTitle = cleanTitle(raw);
-    const episode = parseEpisode(raw);
-    const year = parseYear(raw);
-    const match = await tmdbSearch(extractedTitle, year);
+    const parsedEpisode = parseEpisode(raw);
+    const parsedYear = parseYear(raw);
+    const ai = await classifyWithAI(raw);
+    const aiTitle = ai?.title ?? extractedTitle;
+    const episode = ai?.season && ai?.episode ? { season: ai.season, episode: ai.episode } : parsedEpisode;
+    const year = ai?.year ?? parsedYear;
+    const match = await tmdbSearch(aiTitle, year);
 
     if (!match) {
       await supabase.from("telegram_media").update({ ingestion_status:"review", extracted_title:extractedTitle, extracted_year:year, extracted_season:episode?.season ?? null, extracted_episode:episode?.episode ?? null, match_confidence:0 }).eq("id",media.id);
@@ -92,12 +127,12 @@ Deno.serve(async (req) => {
       return Response.json({ok:true,status:"review",reason:"no_metadata_match"});
     }
 
-    const confidence = Math.min(match.score, 0.99);
+    const confidence = Math.min(0.99, ai?.confidence ? (0.65 * ai.confidence + 0.35 * match.score) : match.score);
     const titleId = await ensureTitle(match);
 
     await supabase.from("telegram_media").update({
       ingestion_status: confidence >= 0.98 ? "matched" : "review",
-      extracted_title: extractedTitle,
+      extracted_title: aiTitle,
       extracted_year: year,
       extracted_season: episode?.season ?? null,
       extracted_episode: episode?.episode ?? null,
