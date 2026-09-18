@@ -40,7 +40,8 @@ insert into public.metadata_providers
 values
 ('tmdb','The Movie Database','metadata','https://api.themoviedb.org/3',true,false,true,null,'Free developer API is non-commercial; commercial use requires a separate license.'),
 ('tvmaze','TVmaze','metadata','https://api.tvmaze.com',true,true,true,null,'Public API is CC BY-SA with attribution/share-alike requirements.'),
-('watchmode','Watchmode','availability','https://api.watchmode.com/v1',true,false,true,30,'Developer plan provides 2,500 monthly credits for non-commercial use; free-plan cached data must be refreshed or deleted within 30 days.')
+('watchmode','Watchmode','availability','https://api.watchmode.com/v1',true,false,true,30,'Developer plan provides 2,500 monthly credits for non-commercial use; free-plan cached data must be refreshed or deleted within 30 days.'),
+('omdb','OMDb API','metadata','https://www.omdbapi.com',true,false,true,null,'Free key has a 1,000 daily request limit; API data is licensed CC BY-NC 4.0, so it is not a production commercial source without compatible licensing.')
 on conflict (provider_key) do update set
   name=excluded.name, kind=excluded.kind, base_url=excluded.base_url,
   commercial_use_allowed=excluded.commercial_use_allowed,
