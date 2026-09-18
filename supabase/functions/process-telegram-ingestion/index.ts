@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
     }
 
     const confidence = Math.min(0.99, ai?.confidence ? (0.65 * ai.confidence + 0.35 * match.score) : match.score);
-    const titleId = await ensureTitle(match);\n    const episodeId = episode && match.x.media_type === "tv" ? await ensureEpisode(titleId, episode, { extracted_title: aiTitle, duration_seconds: media.duration_seconds }) : null;
+    const { data: source } = await supabase.from("telegram_channels").select("auto_publish").eq("id", media.channel_id).single();\n    const titleId = await ensureTitle(match);\n    const episodeId = episode && match.x.media_type === "tv" ? await ensureEpisode(titleId, episode, { extracted_title: aiTitle, duration_seconds: media.duration_seconds }) : null;
 
     await supabase.from("telegram_media").update({
       ingestion_status: confidence >= 0.98 ? "matched" : "review",
@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
     }).eq("id",media.id);
 
     await supabase.from("telegram_ingestion_jobs").update({status:"completed",completed_at:new Date().toISOString()}).eq("id",job.id);
-    return Response.json({ok:true,status:confidence >= 0.98 ? "matched":"review",title_id:titleId,confidence});
+    return Response.json({ok:true,status:autoPublish ? "published" : (confidence >= 0.98 ? "matched":"review"),title_id:titleId,episode_id:episodeId,confidence});
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     await supabase.from("telegram_ingestion_jobs").update({status:"failed",error_message:message}).eq("id",job.id);
