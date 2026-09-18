@@ -57,3 +57,20 @@ The Telegram Bot API supports `channel_post` updates and webhook secret tokens; 
 6. Set `status='active'`.
 7. Enable `auto_publish=true` only for sources whose content MovieLab is authorized to publish automatically.
 8. Register the Telegram webhook with the deployed webhook URL.
+
+
+## Metadata and availability providers
+
+MovieLab uses provider adapters so the catalogue is not locked to one external API.
+
+- TMDB: movie/TV metadata, artwork, search, and watch-provider metadata. Its free developer API is for non-commercial use with attribution; commercial use requires the appropriate TMDB license.
+- TVmaze: TV metadata, seasons, episodes, cast and schedules. Its public API is free and licensed under CC BY-SA with attribution/share-alike requirements.
+- Watchmode: streaming-availability discovery and provider destinations. Its current free Developer plan provides 2,500 monthly credits for non-commercial use, supports up to three countries, requires attribution, and limits free-plan cached data to 30 days. It does not provide movie playback.
+
+Configure these Supabase Edge Function secrets:
+
+- `TMDB_API_KEY`
+- `WATCHMODE_API_KEY`
+- `METADATA_SYNC_SECRET`
+
+The `metadata-provider` Edge Function exposes controlled server-side search and Watchmode availability lookup. API data does not grant MovieLab streaming rights; playback still requires a valid MovieLab rights record or an authorized provider destination.
