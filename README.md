@@ -75,3 +75,39 @@ Configure these Supabase Edge Function secrets:
 - `METADATA_SYNC_SECRET`
 
 The `metadata-provider` Edge Function exposes controlled server-side search and Watchmode availability lookup. API data does not grant MovieLab streaming rights; playback still requires a valid MovieLab rights record or an authorized provider destination.
+
+## Netlify deployment
+
+MovieLab is a Vite SPA and is configured for Netlify with `netlify.toml` and `public/_redirects`.
+
+Netlify build settings:
+- Build command: `npm run build`
+- Publish directory: `dist`
+- Node: 20
+
+Frontend environment variables should contain only browser-safe values such as:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Never put service-role keys, Telegram bot tokens, TMDB/OMDb/Watchmode secrets, Gemini keys, or Cloudflare Stream API tokens in `VITE_*` variables.
+
+## MovieLab media layer
+
+The catalogue supports multiple media sources without removing Telegram or metadata/availability APIs.
+
+Sources include:
+- Telegram ingestion
+- MovieLab CMS uploads
+- TMDB metadata
+- TVmaze metadata
+- OMDb development/non-commercial metadata
+- Watchmode availability
+- future partner APIs, X signals, R2/S3/Bunny/Cloudflare adapters
+
+Cloudflare Stream direct uploads are implemented through the protected `media-upload` Edge Function. Configure:
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_STREAM_TOKEN`
+
+The upload function requires a MovieLab `admin` or `editor` role and creates a direct browser upload URL. Raw media credentials never reach the browser.
+
+Rights are deliberately separate from metadata. A media asset is not returned by the protected playback helper unless it is ready, active, and marked `authorized` or `licensed`.
