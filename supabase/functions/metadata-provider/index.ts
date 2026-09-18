@@ -30,6 +30,23 @@ async function tvmazeSearch(query: string) {
   return res.json();
 }
 
+async function omdbSearch(query: string, year?: string) {
+  const key = Deno.env.get("OMDB_API_KEY");
+  if (!key) return { configured: false, data: [] };
+
+  const params = new URLSearchParams({
+    apikey: key,
+    s: query,
+    type: "movie",
+    ...(year ? { y: year } : {}),
+  });
+  const res = await fetch(`https://www.omdbapi.com/?${params.toString()}`);
+  if (!res.ok) throw new Error(`OMDb search failed: ${res.status}`);
+  const data = await res.json();
+  if (data.Response === "False") return { configured: true, data: [], error: data.Error };
+  return { configured: true, data: data.Search ?? [] };
+}
+
 async function watchmodeSources(providerTitleId: string, territory: string) {
   const key = Deno.env.get("WATCHMODE_API_KEY");
   if (!key) return { configured: false, data: null };
@@ -53,14 +70,16 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = String(body.action ?? "");
     const query = String(body.query ?? "").trim();
+    const year = body.year ? String(body.year) : undefined;
     const territory = String(body.territory ?? "NG").toUpperCase();
 
     if (action === "search") {
       if (!query) return json({ ok: false, error: "query is required" }, 400);
 
-      const [tmdb, tvmaze] = await Promise.allSettled([
+      const [tmdb, tvmaze, omdb] = await Promise.allSettled([
         tmdbSearch(query),
         tvmazeSearch(query),
+        omdbSearch(query, year),
       ]);
 
       return json({
@@ -68,6 +87,7 @@ Deno.serve(async (req) => {
         results: {
           tmdb: tmdb.status === "fulfilled" ? tmdb.value.results ?? [] : [],
           tvmaze: tvmaze.status === "fulfilled" ? tvmaze.value : [],
+          omdb: omdb.status === "fulfilled" ? omdb.value : { configured: false, data: [] },
         },
       });
     }
