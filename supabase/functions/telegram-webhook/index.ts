@@ -103,5 +103,23 @@ Deno.serve(async (req) => {
     .update({ last_event_at: new Date().toISOString() })
     .eq("id", channel.id);
 
+  // Best-effort immediate processing. The queue remains durable if the processor is unavailable.
+  const processorUrl = Deno.env.get("TELEGRAM_PROCESSOR_URL");
+  const processorSecret = Deno.env.get("TELEGRAM_PROCESSOR_SECRET");
+  if (processorUrl) {
+    try {
+      await fetch(processorUrl, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(processorSecret ? { "x-movielab-processor-secret": processorSecret } : {}),
+        },
+        body: JSON.stringify({ trigger: "telegram-webhook", media_id: inserted.id }),
+      });
+    } catch {
+      // The queued job remains available for a scheduled retry.
+    }
+  }
+
   return Response.json({ ok: true, media_id: inserted.id });
 });
