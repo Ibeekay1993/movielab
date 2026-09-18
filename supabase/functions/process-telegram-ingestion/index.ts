@@ -105,11 +105,6 @@ async function ensureTitle(candidate:any) {
     poster=d.poster_path?`https://image.tmdb.org/t/p/w780${d.poster_path}`:null;
     backdrop=d.backdrop_path?`https://image.tmdb.org/t/p/w1280${d.backdrop_path}`:null;
     countries=(d.production_countries??[]).map((c:any)=>c.iso_3166_1).filter(Boolean);
-    for(const genre of d.genres??[]) {
-      const slug=String(genre.name).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-      const {data:g}=await supabase.from("genres").upsert({name:genre.name,slug},{onConflict:"slug"}).select("id").single();
-      if(g) await supabase.from("title_genres").upsert({title_id:undefined,genre_id:g.id},{onConflict:"title_id,genre_id"}).catch(()=>{});
-    }
   } else {
     const d=candidate.media;
     title=d?.name??title; overview=d?.summary?.replace(/<[^>]+>/g," ")??null; releaseDate=d?.premiered??null;
@@ -185,9 +180,6 @@ Deno.serve(async(req)=>{
     const titleId=await ensureTitle(best);
     const episodeId=episode&&best.type==="series"?await ensureEpisode(titleId,episode,{extracted_title:query,duration_seconds:media.duration_seconds}):null;
     const {data:source}=await supabase.from("telegram_channels").select("auto_publish").eq("id",media.channel_id).single();
-
-    -- Placeholder: a Telegram file is metadata-matched here. It is not made publicly playable
-    -- until an authorized media delivery adapter creates a ready media_asset and rights check passes.
     const nextStatus=source?.auto_publish&&confidence>=0.98?"matched":confidence>=0.90?"matched":"review";
     await supabase.from("telegram_media").update({
       ingestion_status:nextStatus,extracted_title:query,extracted_year:year,
