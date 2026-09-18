@@ -7,6 +7,7 @@ import {
 import { catalog } from "../data/catalog";
 import { findTitle, formatRuntime, searchTitles } from "../lib/catalog";
 import type { Title } from "../types/catalog";
+import MediaLibrary from "../pages/MediaLibrary";
 
 function Header() {
   const navigate = useNavigate();
@@ -140,5 +141,5 @@ function TitlePage() {
 function MyList() { return <main className="page empty"><div className="empty-icon"><Plus size={28}/></div><h1>Your List</h1><p>Save movies and series here for later.</p><Link className="button button-light" to="/movies">Browse movies</Link></main>; }
 
 export default function App() {
-  return <div className="app"><Header/><Routes><Route path="/" element={<Home/>}/><Route path="/movies" element={<Listing type="movie"/>}/><Route path="/series" element={<Listing type="series"/>}/><Route path="/nigerian-cinema" element={<Listing type="movie" title="Nigerian Cinema"/>}/><Route path="/coming-soon" element={<Listing type="movie" title="New & Trending"/>}/><Route path="/search" element={<SearchPage/>}/><Route path="/title/:slug" element={<TitlePage/>}/><Route path="/my-list" element={<MyList/>}/><Route path="*" element={<main className="page empty"><h1>Page not found</h1><Link className="button button-light" to="/">Return home</Link></main>}/></Routes></div>;
+  return <div className="app"><Header/><Routes><Route path="/" element={<Home/>}/><Route path="/movies" element={<Listing type="movie"/>}/><Route path="/series" element={<Listing type="series"/>}/><Route path="/nigerian-cinema" element={<Listing type="movie" title="Nigerian Cinema"/>}/><Route path="/coming-soon" element={<Listing type="movie" title="New & Trending"/>}/><Route path="/search" element={<SearchPage/>}/><Route path="/title/:slug" element={<TitlePage/>}/><Route path="/my-list" element={<MyList/>}/><Route path="/cms/media" element={<MediaLibrary/>}/><Route path="*" element={<main className="page empty"><h1>Page not found</h1><Link className="button button-light" to="/">Return home</Link></main>}/></Routes></div>;
 }
