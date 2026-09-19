@@ -255,22 +255,24 @@ function TitlePage() {
 
   if (!title) return <main className="page empty"><h1>Title not found</h1><Link className="button button-light" to="/">Back home</Link></main>;
 
-  const selectedSeasonData = title.seasons?.find(season => season.number === selectedSeason) ?? title.seasons?.[0];
+  const currentTitle = title;
+
+  const selectedSeasonData = currentTitle.seasons?.find(season => season.number === selectedSeason) ?? currentTitle.seasons?.[0];
   const episodes = selectedSeasonData?.episodes ?? [];
   const effectiveEpisode = episodes.find(episode => episode.number === selectedEpisode)?.number ?? episodes[0]?.number ?? selectedEpisode;
   const selectedEpisodeData = episodes.find(episode => episode.number === effectiveEpisode);
-  const titleMovieLabSource = title.availability.find(item => item.kind === "movielab" && item.url)?.url ?? null;
+  const titleMovieLabSource = currentTitle.availability.find(item => item.kind === "movielab" && item.url)?.url ?? null;
   const movieLabSource = selectedEpisodeData?.playbackUrl ?? titleMovieLabSource;
   const hasMovieLabSource = Boolean(movieLabSource);
-  const hasNexStreamSource = Boolean(title.tmdbId);
+  const hasNexStreamSource = Boolean(currentTitle.tmdbId);
   const playable = hasMovieLabSource || hasNexStreamSource;
 
   async function startPlayback(season = selectedSeason, episode = effectiveEpisode, requestedMode: "movielab" | "nexstream" = hasMovieLabSource ? "movielab" : "nexstream") {
     setPlaybackError(null);
 
     if (requestedMode === "movielab") {
-      const source = title.type === "series"
-        ? (title.seasons?.find(s => s.number === season)?.episodes.find(e => e.number === episode)?.playbackUrl ?? titleMovieLabSource)
+      const source = currentTitle.type === "series"
+        ? (currentTitle.seasons?.find(s => s.number === season)?.episodes.find(e => e.number === episode)?.playbackUrl ?? titleMovieLabSource)
         : titleMovieLabSource;
       if (!source) {
         setPlaybackError("MovieLab does not have a playable media source for this title yet.");
@@ -281,18 +283,18 @@ function TitlePage() {
       return;
     }
 
-    if (!title.tmdbId) {
-      setPlaybackError("No playback source is configured for this title.");
+    if (!currentTitle.tmdbId) {
+      setPlaybackError("No playback source is configured for this currentTitle.");
       return;
     }
 
     setPlaybackLoading(true);
     try {
       const params = new URLSearchParams({
-        tmdbId: String(title.tmdbId),
-        type: title.type === "series" ? "tv" : "movie",
+        tmdbId: String(currentTitle.tmdbId),
+        type: currentTitle.type === "series" ? "tv" : "movie",
       });
-      if (title.type === "series") {
+      if (currentTitle.type === "series") {
         params.set("season", String(season));
         params.set("episode", String(episode));
       }
@@ -316,7 +318,7 @@ function TitlePage() {
     const episode = episodes.find(item => item.number === number);
     if (episode?.playbackUrl || titleMovieLabSource) {
       void startPlayback(selectedSeason, number, "movielab");
-    } else if (title.tmdbId) {
+    } else if (currentTitle.tmdbId) {
       void startPlayback(selectedSeason, number, "nexstream");
     } else {
       setPlaybackUrl(null);
@@ -332,13 +334,13 @@ function TitlePage() {
 
   return <main className="title-page">
     <section className="detail-hero">
-      {title.backdropUrl ? <img src={title.backdropUrl} alt=""/> : <div className="hero-fallback"/>}<div className="detail-vignette"/>
+      {currentTitle.backdropUrl ? <img src={currentTitle.backdropUrl} alt=""/> : <div className="hero-fallback"/>}<div className="detail-vignette"/>
       <div className="detail-content">
         <Link className="back-link" to="/"><ChevronLeft size={17}/> Back</Link>
-        <span className="eyebrow plain">{title.type === "series" ? "Series" : "Movie"}</span>
-        <h1>{title.title}</h1>
-        <div className="hero-meta"><span>{title.year}</span><i/><span>{title.rating}</span>{title.runtimeMinutes && <><i/><span>{formatRuntime(title.runtimeMinutes)}</span></>}<i/><span>{title.genre.join(" · ")}</span></div>
-        <p>{title.overview}</p>
+        <span className="eyebrow plain">{currentTitle.type === "series" ? "Series" : "Movie"}</span>
+        <h1>{currentTitle.title}</h1>
+        <div className="hero-meta"><span>{currentTitle.year}</span><i/><span>{currentTitle.rating}</span>{currentTitle.runtimeMinutes && <><i/><span>{formatRuntime(currentTitle.runtimeMinutes)}</span></>}<i/><span>{currentTitle.genre.join(" · ")}</span></div>
+        <p>{currentTitle.overview}</p>
         <div className="actions">
           {playable && <button className="button button-light" onClick={() => void startPlayback()} disabled={playbackLoading}>
             {playbackLoading ? "Loading player…" : <><Play size={18} fill="currentColor"/> Watch now</>}
@@ -346,8 +348,8 @@ function TitlePage() {
           <button className="button button-glass" onClick={() => {
   const next = !listed;
   setListed(next);
-  const ids = readSavedIds().filter(id => id !== title.id);
-  if (next) ids.push(title.id);
+  const ids = readSavedIds().filter(id => id !== currentTitle.id);
+  if (next) ids.push(currentTitle.id);
   writeSavedIds(ids);
 }}>{listed ? <Check size={18}/> : <Plus size={18}/>} {listed ? "In My List" : "My List"}</button>
         </div>
@@ -359,7 +361,7 @@ function TitlePage() {
         {playbackError && <div className="playback-error" role="alert">{playbackError}</div>}
         {playbackUrl && <div className="playback-panel">
           <div className="section-title">
-            <div><span className="eyebrow plain">Now playing</span><h2>{title.title}</h2></div>
+            <div><span className="eyebrow plain">Now playing</span><h2>{currentTitle.title}</h2></div>
             <div className="player-choice" role="group" aria-label="Choose playback source">
               {hasMovieLabSource && <button className={playerMode === "movielab" ? "active" : ""} onClick={() => void startPlayback(selectedSeason, effectiveEpisode, "movielab")}>MovieLab Player</button>}
               {hasNexStreamSource && <button className={playerMode === "nexstream" ? "active" : ""} onClick={() => void startPlayback(selectedSeason, effectiveEpisode, "nexstream")} disabled={playbackLoading}>NexStream</button>}
@@ -367,16 +369,16 @@ function TitlePage() {
             </div>
           </div>
           {playerMode === "movielab" && movieLabSource
-            ? <MovieLabPlayer src={movieLabSource} title={title.title} poster={title.posterUrl} storageKey={"movielab:" + title.id + ":" + selectedSeason + ":" + effectiveEpisode} />
-            : <PlaybackFrame src={playbackUrl} title={title.title}/>}
+            ? <MovieLabPlayer src={movieLabSource} title={currentTitle.title} poster={currentTitle.posterUrl} storageKey={"movielab:" + currentTitle.id + ":" + selectedSeason + ":" + effectiveEpisode} />
+            : <PlaybackFrame src={playbackUrl} title={currentTitle.title}/>}
         </div>}
 
-        {title.seasons && <div className="episodes-panel">
+        {currentTitle.seasons && <div className="episodes-panel">
           <div className="section-title">
             <div><span className="eyebrow plain">Episodes</span><h2>Season {selectedSeason}</h2></div>
-            {title.seasons.length > 1
+            {currentTitle.seasons.length > 1
               ? <select className="season-select" value={selectedSeason} onChange={event => selectSeason(Number(event.target.value))} aria-label="Select season">
-                  {title.seasons.map(season => <option key={season.number} value={season.number}>Season {season.number}</option>)}
+                  {currentTitle.seasons.map(season => <option key={season.number} value={season.number}>Season {season.number}</option>)}
                 </select>
               : <span className="season-select">Season 1</span>}
           </div>
@@ -391,7 +393,7 @@ function TitlePage() {
 
       <aside className="details-aside">
         <div className="info-card"><span>MovieLab availability</span><strong>{hasMovieLabSource ? "Ready to watch" : "Not uploaded yet"}</strong><small>{hasMovieLabSource ? "Plays through the MovieLab native player." : "This title is catalogue metadata only until an authorized media source is attached."}</small></div>
-        <div className="info-card"><span>Metadata source</span><strong>{title.tmdbId ? "TMDB" : "MovieLab"}</strong><small>{hasNexStreamSource && !hasMovieLabSource ? "A fallback provider is available." : hasMovieLabSource ? "MovieLab media is the primary playback source." : "No playback source is attached yet."}</small></div>
+        <div className="info-card"><span>Metadata source</span><strong>{currentTitle.tmdbId ? "TMDB" : "MovieLab"}</strong><small>{hasNexStreamSource && !hasMovieLabSource ? "A fallback provider is available." : hasMovieLabSource ? "MovieLab media is the primary playback source." : "No playback source is attached yet."}</small></div>
       </aside>
     </section>
   </main>;
@@ -400,11 +402,11 @@ function TitlePage() {
 function MyList() {
   const { catalog } = useCatalog();
   const saved = new Set(readSavedIds());
-  const titles = catalog.filter(title => saved.has(title.id));
+  const titles = catalog.filter(title => saved.has(currentTitle.id));
   return <main className="page">
     <div className="page-head"><div><span className="eyebrow plain">Your Library</span><h1>My List</h1><p>{titles.length} saved {titles.length === 1 ? "title" : "titles"}</p></div></div>
     {titles.length
-      ? <div className="grid">{titles.map(title => <Card key={title.id} title={title}/>)}</div>
+      ? <div className="grid">{titles.map(title => <Card key={currentTitle.id} title={title}/>)}</div>
       : <div className="empty"><div className="empty-icon"><Plus size={28}/></div><h2>Your list is empty</h2><p>Save movies and series here for later.</p><Link className="button button-light" to="/movies">Browse movies</Link></div>}
   </main>;
 }
