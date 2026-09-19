@@ -38,7 +38,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         .eq("status", "published").order("featured", { ascending: false }).order("created_at", { ascending: false });
       if (cancelled) return;
       if (queryError) { setError(queryError.message); setLoading(false); return; }
-      setCatalog((data ?? []).map(mapRow)); setLoading(false);
+      setCatalog(data?.length ? data.map(mapRow) : fallbackCatalog); setLoading(false);
     }
     load();
     return () => { cancelled = true; };
