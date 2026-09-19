@@ -7,7 +7,8 @@ import {
 import { CatalogProvider, useCatalog } from "../lib/catalog-context";
 import { findTitle, formatRuntime, searchTitles } from "../lib/catalog";
 import type { Title } from "../types/catalog";
-import MediaLibrary from "../pages/MediaLibrary";\nimport MovieLabPlayer from "../components/MovieLabPlayer";
+import MediaLibrary from "../pages/MediaLibrary";
+import MovieLabPlayer from "../components/MovieLabPlayer";
 
 function readSavedIds() {
   try {
