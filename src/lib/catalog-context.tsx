@@ -35,8 +35,8 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
 
-    async function load() {
-      const { data, error: queryError } = await client.from("titles")
+    async function load(supabaseClient: NonNullable<typeof supabase>) {
+      const { data, error: queryError } = await supabaseClient.from("titles")
         .select("*, title_genres(genres(*)), seasons(*, episodes(*))")
         .eq("status", "published")
         .order("featured", { ascending: false })
@@ -53,7 +53,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
 
-    load();
+    load(client);
     return () => {
       cancelled = true;
     };
