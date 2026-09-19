@@ -69,6 +69,23 @@ export default function MovieLabPlayer({ src, title, poster, storageKey, onEnded
     const onError = () => setError("MovieLab could not play this media. Check that the source is a valid video or HLS manifest.");
     const onFs = () => setFullscreen(Boolean(document.fullscreenElement));
 
+    const videoElement = video;
+    function cleanup() {
+      if (saveRef.current) window.clearTimeout(saveRef.current);
+      if (hideRef.current) window.clearTimeout(hideRef.current);
+      videoElement.removeEventListener("loadedmetadata", onMeta);
+      videoElement.removeEventListener("timeupdate", onTime);
+      videoElement.removeEventListener("progress", onTime);
+      videoElement.removeEventListener("play", onPlay);
+      videoElement.removeEventListener("pause", onPause);
+      videoElement.removeEventListener("ended", onEndedEvent);
+      videoElement.removeEventListener("error", onError);
+      document.removeEventListener("fullscreenchange", onFs);
+      videoElement.pause();
+      videoElement.removeAttribute("src");
+      videoElement.load();
+    }
+
     video.addEventListener("loadedmetadata", onMeta);
     video.addEventListener("timeupdate", onTime);
     video.addEventListener("progress", onTime);
@@ -126,21 +143,7 @@ export default function MovieLabPlayer({ src, title, poster, storageKey, onEnded
       video.src = src;
     }
 
-    const cleanup = () => {
-      if (saveRef.current) window.clearTimeout(saveRef.current);
-      if (hideRef.current) window.clearTimeout(hideRef.current);
-      video.removeEventListener("loadedmetadata", onMeta);
-      video.removeEventListener("timeupdate", onTime);
-      video.removeEventListener("progress", onTime);
-      video.removeEventListener("play", onPlay);
-      video.removeEventListener("pause", onPause);
-      video.removeEventListener("ended", onEndedEvent);
-      video.removeEventListener("error", onError);
-      document.removeEventListener("fullscreenchange", onFs);
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-    }
+
 
     return () => {
       if (hls) hls.destroy();
