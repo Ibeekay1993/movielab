@@ -670,9 +670,6 @@ select.season-select{cursor:pointer;outline:none}
   .search-toggle{
     width:34px;
   }
-  .title-page{
-    overflow:hidden;
-  }
   .detail-hero{
     height:610px;
     min-height:610px;
