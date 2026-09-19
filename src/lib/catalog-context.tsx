@@ -139,7 +139,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       const merged = mergeCatalog(databaseCatalog, tmdbCatalog);
       const allowDemoFallback = import.meta.env.VITE_APP_ENV !== "production";
       setCatalog(merged.length ? merged : (allowDemoFallback ? fallbackCatalog : []));
-      setCollections(tmdbCollections);
+      setCollections(normalizeCollections(tmdbCollections, databaseCatalog));
       if (!merged.length && !allowDemoFallback) setError("No production catalogue is available yet.");
       setLoading(false);
     }
