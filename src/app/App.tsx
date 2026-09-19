@@ -402,11 +402,11 @@ function TitlePage() {
 function MyList() {
   const { catalog } = useCatalog();
   const saved = new Set(readSavedIds());
-  const titles = catalog.filter(title => saved.has(currentTitle.id));
+  const titles = catalog.filter(title => saved.has(title.id));
   return <main className="page">
     <div className="page-head"><div><span className="eyebrow plain">Your Library</span><h1>My List</h1><p>{titles.length} saved {titles.length === 1 ? "title" : "titles"}</p></div></div>
     {titles.length
-      ? <div className="grid">{titles.map(title => <Card key={currentTitle.id} title={title}/>)}</div>
+      ? <div className="grid">{titles.map(title => <Card key={title.id} title={title}/>)}</div>
       : <div className="empty"><div className="empty-icon"><Plus size={28}/></div><h2>Your list is empty</h2><p>Save movies and series here for later.</p><Link className="button button-light" to="/movies">Browse movies</Link></div>}
   </main>;
 }
