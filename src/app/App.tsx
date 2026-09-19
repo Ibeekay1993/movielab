@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  ChevronLeft, ChevronRight, Clock3, Info, Play, Plus, Search, Sparkles,
+  ChevronLeft, ChevronRight, Clock3, Info, Play, Plus, Search, Sparkles, House, Clapperboard, Tv2, UserRound,
   X, Check, Film, UserCircle2
 } from "lucide-react";
 import { catalog } from "../data/catalog";
@@ -69,7 +69,7 @@ function Rail({ title, subtitle, titles, ranked = false }: { title: string; subt
           <button className="rail-arrow" onClick={() => setOffset(offset + 1)} aria-label="Next"><ChevronRight size={18}/></button>
         </div>
       </div>
-      <div className="rail-viewport"><div className="rail" style={{ transform: `translateX(-${offset * 410}px)` }}>{titles.map((t, i) => <Card key={t.id} title={t} rank={ranked ? i + 1 : undefined}/>)}</div></div>
+      <div className="rail-viewport"><div className="rail" style={{ transform: `translateX(-${offset * 210}px)` }}>{titles.map((t, i) => <Card key={t.id} title={t} rank={ranked ? i + 1 : undefined}/>)}</div></div>
     </section>
   );
 }
@@ -141,5 +141,5 @@ function TitlePage() {
 function MyList() { return <main className="page empty"><div className="empty-icon"><Plus size={28}/></div><h1>Your List</h1><p>Save movies and series here for later.</p><Link className="button button-light" to="/movies">Browse movies</Link></main>; }
 
 export default function App() {
-  return <div className="app"><Header/><Routes><Route path="/" element={<Home/>}/><Route path="/movies" element={<Listing type="movie"/>}/><Route path="/series" element={<Listing type="series"/>}/><Route path="/nigerian-cinema" element={<Listing type="movie" title="Nigerian Cinema"/>}/><Route path="/coming-soon" element={<Listing type="movie" title="New & Trending"/>}/><Route path="/search" element={<SearchPage/>}/><Route path="/title/:slug" element={<TitlePage/>}/><Route path="/my-list" element={<MyList/>}/><Route path="/cms/media" element={<MediaLibrary/>}/><Route path="*" element={<main className="page empty"><h1>Page not found</h1><Link className="button button-light" to="/">Return home</Link></main>}/></Routes></div>;
+  return <div className="app"><Header/><Routes><Route path="/" element={<Home/>}/><Route path="/movies" element={<Listing type="movie"/>}/><Route path="/series" element={<Listing type="series"/>}/><Route path="/nigerian-cinema" element={<Listing type="movie" title="Nigerian Cinema"/>}/><Route path="/coming-soon" element={<Listing type="movie" title="New & Trending"/>}/><Route path="/search" element={<SearchPage/>}/><Route path="/title/:slug" element={<TitlePage/>}/><Route path="/my-list" element={<MyList/>}/><Route path="/cms/media" element={<MediaLibrary/>}/><Route path="*" element={<main className="page empty"><h1>Page not found</h1><Link className="button button-light" to="/">Return home</Link></main>}/></Routes><nav className="mobile-nav" aria-label="Mobile navigation"><Link to="/" className={location.pathname === "/" ? "active" : ""}><House size={18}/><span>Home</span></Link><Link to="/movies"><Clapperboard size={18}/><span>Movies</span></Link><Link to="/series"><Tv2 size={18}/><span>Series</span></Link><Link to="/nigerian-cinema"><span className="mobile-naija">NG</span><span>Nigerian</span></Link><Link to="/my-list"><UserRound size={18}/><span>My List</span></Link></nav></div>;
 }
