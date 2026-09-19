@@ -226,6 +226,10 @@ function TitlePage() {
   const effectiveEpisode = episodes.find(episode => episode.number === selectedEpisode)?.number ?? episodes[0]?.number ?? selectedEpisode;
 
   async function startPlayback(season = selectedSeason, episode = effectiveEpisode) {
+    if (!title) {
+      setPlaybackError("This title could not be resolved.");
+      return;
+    }
     if (!title.tmdbId) {
       setPlaybackError("This title does not have a TMDB ID, so playback cannot be resolved yet.");
       return;
