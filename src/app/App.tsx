@@ -115,7 +115,7 @@ function Hero({ title }: { title: Title }) {
         <h1>{title.title}</h1>
         <div className="hero-meta"><span>{title.year}</span><i/> <span>{title.rating}</span><i/> <span>{formatRuntime(title.runtimeMinutes)}</span><i/> <span>{title.genre.slice(0,3).join(" · ")}</span></div>
         <p>{title.overview}</p>
-        <div className="hero-stats"><span><strong>{title.match ?? 90}%</strong> Match</span><span>MovieLab Original</span><span>HD</span></div>
+        <div className="hero-stats"><span><strong>{title.match ?? 90}%</strong> Match</span><span>{title.tmdbId ? "TMDB metadata" : "MovieLab catalogue"}</span><span>HD</span></div>
         <div className="actions">
           <Link className="button button-light" to={`/title/${title.slug}`}><Play size={18} fill="currentColor"/> Play</Link>
           <Link className="button button-glass" to={`/title/${title.slug}`}><Info size={18}/> More Info</Link>
@@ -130,24 +130,23 @@ function CollectionRail({ title, titles, href, ranked = false }: { title: string
 }
 
 function Home() {
-  const { catalog } = useCatalog();
+  const { catalog, collections } = useCatalog();
   const featured = catalog.find(t => t.featured) ?? catalog[0];
   if (!featured) return <main className="page empty catalogue-state"><div className="catalogue-loader"><span/><span/><span/></div><h1>Loading MovieLab</h1><p>Connecting to the live catalogue.</p></main>;
 
-  const movies = catalog.filter(t => t.type === "movie");
-  const series = catalog.filter(t => t.type === "series");
-  const nigeria = catalog.filter(t => t.country.some(c => c.toLowerCase() === "nigeria"));
-  const byGenre = (genres: string[]) => catalog.filter(t => t.genre.some(g => genres.some(target => g.toLowerCase() === target.toLowerCase())));
+  const collection = (key: string) => collections[key] ?? [];
   const sections = [
-    { title: "Popular Series", titles: series, href: "/tv-shows" },
-    { title: "Popular Movies", titles: movies, href: "/movies" },
-    { title: "Nollywood", titles: nigeria, href: "/nigerian-cinema" },
-    { title: "Action & Thriller", titles: byGenre(["Action", "Thriller"]) },
-    { title: "Drama", titles: byGenre(["Drama"]) },
-    { title: "Comedy", titles: byGenre(["Comedy"]) },
-    { title: "Romance", titles: byGenre(["Romance"]) },
-    { title: "Animation", titles: byGenre(["Animation", "Anime"]) },
-    { title: "New & Trending", titles: [...catalog].sort((a, b) => b.year - a.year), href: "/coming-soon", ranked: true },
+    { title: "Trending this week", titles: collection("trending"), href: "/coming-soon", ranked: true },
+    { title: "Popular Series", titles: collection("popularTv"), href: "/tv-shows" },
+    { title: "Popular Movies", titles: collection("popularMovies"), href: "/movies" },
+    { title: "Now Playing", titles: collection("nowPlaying") },
+    { title: "Nollywood", titles: collection("nigerian"), href: "/nigerian-cinema" },
+    { title: "Action", titles: collection("actionMovies") },
+    { title: "Drama", titles: collection("dramaMovies") },
+    { title: "Comedy", titles: collection("comedyMovies") },
+    { title: "Romance", titles: collection("romanceMovies") },
+    { title: "Animation", titles: collection("animation"), href: "/animation" },
+    { title: "Coming Soon", titles: collection("upcoming"), href: "/coming-soon" },
   ];
 
   return <>
@@ -160,13 +159,14 @@ function Home() {
   </>;
 }
 
-type CollectionKey = "home" | "movies" | "tv-shows" | "midnight" | "animation";
+type CollectionKey = "home" | "movies" | "tv-shows" | "midnight" | "animation" | "nigerian";
 
 function getCollection(catalog: Title[], collection: CollectionKey) {
   if (collection === "movies") return catalog.filter(t => t.type === "movie");
   if (collection === "tv-shows") return catalog.filter(t => t.type === "series");
   if (collection === "animation") return catalog.filter(t => t.genre.some(g => ["animation", "anime"].includes(g.toLowerCase())));
   if (collection === "midnight") return catalog.filter(t => t.genre.some(g => ["horror", "thriller", "crime", "mystery"].includes(g.toLowerCase())));
+  if (collection === "nigerian") return catalog.filter(t => t.country.some(c => c.toLowerCase() === "nigeria" || c.toLowerCase() === "ng"));
   return catalog;
 }
 function Listing({ collection, title, description }: { collection: CollectionKey; title: string; description: string }) {
@@ -191,7 +191,7 @@ function SearchPage() {
   const { catalog } = useCatalog();
   const { search } = useLocation();
   const query = new URLSearchParams(search).get("q") ?? "";
-  const results = useMemo(() => searchTitles(catalog, query), [query]);
+  const results = useMemo(() => searchTitles(catalog, query), [catalog, query]);
   return <main className="page"><div className="page-head"><div><span className="eyebrow plain">Discovery</span><h1>Search</h1><p>{results.length} results for “{query}”</p></div></div>{results.length ? <div className="grid">{results.map(t => <Card key={t.id} title={t}/>)}</div> : <div className="empty"><Search size={38}/><h2>No titles found</h2><p>Try another title, actor, genre or country.</p></div>}</main>;
 }
 
@@ -296,7 +296,7 @@ export default function App() {
       <Route path="/series" element={<Listing collection="tv-shows" title="TV Shows" description="Series, seasons and episodes across the MovieLab catalogue."/>}/>
       <Route path="/midnight" element={<Listing collection="midnight" title="Midnight" description="Dark, tense and after-hours viewing from the MovieLab catalogue."/>}/>
       <Route path="/animation" element={<Listing collection="animation" title="Animation" description="Animated films and series in one dedicated MovieLab destination."/>}/>
-      <Route path="/nigerian-cinema" element={<Listing collection="movies" title="Nigerian Cinema" description="Nollywood titles from the MovieLab catalogue."/>}/>
+      <Route path="/nigerian-cinema" element={<Listing collection="nigerian" title="Nigerian Cinema" description="Nigerian films and series from the MovieLab catalogue."/>}/>
       <Route path="/coming-soon" element={<Listing collection="home" title="New & Trending" description="Recently added and currently highlighted MovieLab titles."/>}/>
       <Route path="/search" element={<SearchPage/>}/><Route path="/title/:slug" element={<TitlePage/>}/><Route path="/my-list" element={<MyList/>}/><Route path="/cms/media" element={<MediaLibrary/>}/>
       <Route path="*" element={<main className="page empty"><h1>Page not found</h1><Link className="button button-light" to="/">Return home</Link></main>}/>
