@@ -7,7 +7,7 @@ import {
 import { CatalogProvider, useCatalog } from "../lib/catalog-context";
 import { findTitle, formatRuntime, searchTitles } from "../lib/catalog";
 import type { Title } from "../types/catalog";
-import MediaLibrary from "../pages/MediaLibrary";
+import MediaLibrary from "../pages/MediaLibrary";\nimport MovieLabPlayer from "../components/MovieLabPlayer";
 
 function Header({ onMenu }: { onMenu: () => void }) {
   const navigate = useNavigate();
@@ -214,13 +214,13 @@ function TitlePage() {
   const [listed, setListed] = useState(false);
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
   const [playbackLoading, setPlaybackLoading] = useState(false);
-  const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);\n  const [playerMode, setPlayerMode] = useState<"movielab" | "nexstream">("movielab");
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
 
   if (!title) return <main className="page empty"><h1>Title not found</h1><Link className="button button-light" to="/">Back home</Link></main>;
 
-  const playable = Boolean(title.tmdbId);
+  const movieLabSource = title.availability.find(item => item.kind === "movielab" && item.url)?.url ?? null;\n  const playable = Boolean(title.tmdbId || movieLabSource);
   const selectedSeasonData = title.seasons?.find(season => season.number === selectedSeason) ?? title.seasons?.[0];
   const episodes = selectedSeasonData?.episodes ?? [];
   const effectiveEpisode = episodes.find(episode => episode.number === selectedEpisode)?.number ?? episodes[0]?.number ?? selectedEpisode;
@@ -276,12 +276,12 @@ function TitlePage() {
     <section className="detail-body">
       <div>
         {playbackError && <div className="playback-error" role="alert">{playbackError}</div>}
-        {playbackUrl && <div className="playback-panel"><div className="section-title"><div><span className="eyebrow plain">Now playing</span><h2>{title.title}</h2></div><button className="button button-glass playback-close" onClick={() => setPlaybackUrl(null)}>Close player</button></div><PlaybackFrame src={playbackUrl} title={title.title}/></div>}
+        {playbackUrl && <div className="playback-panel"><div className="section-title"><div><span className="eyebrow plain">Now playing</span><h2>{title.title}</h2></div><div className="player-choice" role="group" aria-label="Choose playback player">{movieLabSource && <button className={playerMode === "movielab" ? "active" : ""} onClick={() => { setPlayerMode("movielab"); setPlaybackUrl(movieLabSource); }}>MovieLab Player</button>}{title.tmdbId && <button className={playerMode === "nexstream" ? "active" : ""} onClick={() => { setPlayerMode("nexstream"); setPlaybackUrl(null); void startPlayback(); }}>NexStream</button>}<button className="player-close" onClick={() => setPlaybackUrl(null)} aria-label="Close player">Close</button></div></div>{playerMode === "movielab" && movieLabSource ? <MovieLabPlayer src={movieLabSource} title={title.title} poster={title.posterUrl} storageKey={"movielab:" + title.id} /> : <PlaybackFrame src={playbackUrl} title={title.title}/>}</div>}
 
         {title.seasons && <div className="episodes-panel"><div className="section-title"><div><span className="eyebrow plain">Episodes</span><h2>Season {selectedSeason}</h2></div>{title.seasons.length > 1 ? <select className="season-select" value={selectedSeason} onChange={event => { setSelectedSeason(Number(event.target.value)); setSelectedEpisode(1); setPlaybackUrl(null); }} aria-label="Select season">{title.seasons.map(season => <option key={season.number} value={season.number}>Season {season.number}</option>)}</select> : <span className="season-select">Season 1</span>}</div>{episodes.map(e => <button className="episode-row" key={e.id} onClick={() => selectEpisode(e.number)}><span className="episode-number">{String(e.number).padStart(2,"0")}</span><span className="episode-thumb"><Film size={20}/></span><span className="episode-info"><strong>{e.title}</strong><span><Clock3 size={13}/> {formatRuntime(e.runtimeMinutes)}</span><p>{e.overview ?? "Episode details will appear as catalogue metadata is enriched."}</p></span><span className="episode-play" aria-hidden="true"><Play size={15} fill="currentColor"/></span></button>)}</div>}
       </div>
 
-      <aside className="details-aside"><div className="info-card"><span>MovieLab match</span><strong>{title.match ?? 0}%</strong><div className="match-bar"><i style={{width: `${title.match ?? 0}%`}}/></div></div><div className="info-card"><span>Metadata source</span><strong>{title.tmdbId ? "TMDB" : "MovieLab"}</strong><small>{title.tmdbId ? "TMDB metadata is connected to NexStream playback." : "This title needs a TMDB identity before playback can be resolved."}</small></div></aside>
+      <aside className="details-aside"><div className="info-card"><span>MovieLab match</span><strong>{title.match ?? 0}%</strong><div className="match-bar"><i style={{width: `${title.match ?? 0}%`}}/></div></div><div className="info-card"><span>Metadata source</span><strong>{title.tmdbId ? "TMDB" : "MovieLab"}</strong><small>{movieLabSource ? "MovieLab Player is available for this title." : title.tmdbId ? "NexStream is available. MovieLab Player will appear when this title has an owned media source." : "This title needs a playable media source."}</small></div></aside>
     </section>
   </main>;
 }
