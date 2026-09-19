@@ -205,21 +205,89 @@ function SearchPage() {
   return <main className="page"><div className="page-head"><div><span className="eyebrow plain">Discovery</span><h1>Search</h1><p>{results.length} results for “{query}”</p></div></div>{results.length ? <div className="grid">{results.map(t => <Card key={t.id} title={t}/>)}</div> : <div className="empty"><Search size={38}/><h2>No titles found</h2><p>Try another title, actor, genre or country.</p></div>}</main>;
 }
 
+function PlaybackFrame({ src, title }: { src: string; title: string }) {
+  return <div className="playback-frame" aria-label={title}>
+    <iframe
+      src={src}
+      title={title}
+      allow="autoplay; fullscreen; picture-in-picture"
+      allowFullScreen
+      referrerPolicy="strict-origin-when-cross-origin"
+    />
+  </div>;
+}
+
 function TitlePage() {
   const { catalog } = useCatalog();
   const { slug = "" } = useParams();
   const title = findTitle(catalog, slug);
   const [listed, setListed] = useState(false);
+  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+  const [playbackLoading, setPlaybackLoading] = useState(false);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState(1);
+  const [selectedEpisode, setSelectedEpisode] = useState(1);
+
   if (!title) return <main className="page empty"><h1>Title not found</h1><Link className="button button-light" to="/">Back home</Link></main>;
-  const playable = title.availability.some(a => a.kind === "movielab");
+
+  const playable = Boolean(title.tmdbId);
+  const selectedSeasonData = title.seasons?.find(season => season.number === selectedSeason) ?? title.seasons?.[0];
+  const episodes = selectedSeasonData?.episodes ?? [];
+  const effectiveEpisode = episodes.find(episode => episode.number === selectedEpisode)?.number ?? episodes[0]?.number ?? selectedEpisode;
+
+  async function startPlayback(season = selectedSeason, episode = effectiveEpisode) {
+    if (!title.tmdbId) {
+      setPlaybackError("This title does not have a TMDB ID, so playback cannot be resolved yet.");
+      return;
+    }
+
+    setPlaybackLoading(true);
+    setPlaybackError(null);
+    try {
+      const params = new URLSearchParams({
+        tmdbId: String(title.tmdbId),
+        type: title.type === "series" ? "tv" : "movie",
+      });
+      if (title.type === "series") {
+        params.set("season", String(season));
+        params.set("episode", String(episode));
+      }
+
+      const response = await fetch("/api/playback?" + params.toString());
+      const payload = await response.json();
+      if (!response.ok || typeof payload.embedUrl !== "string") {
+        throw new Error(payload.error ?? "Playback provider is unavailable.");
+      }
+
+      setPlaybackUrl(payload.embedUrl);
+    } catch (error) {
+      setPlaybackError(error instanceof Error ? error.message : "Playback provider is unavailable.");
+    } finally {
+      setPlaybackLoading(false);
+    }
+  }
+
+  function selectEpisode(number: number) {
+    setSelectedEpisode(number);
+    setPlaybackUrl(null);
+    void startPlayback(selectedSeason, number);
+  }
+
   return <main className="title-page">
     <section className="detail-hero">
       {title.backdropUrl ? <img src={title.backdropUrl} alt=""/> : <div className="hero-fallback"/>}<div className="detail-vignette"/>
-      <div className="detail-content"><Link className="back-link" to="/"><ChevronLeft size={17}/> Back</Link><span className="eyebrow plain">{title.type === "series" ? "Series" : "Movie"}</span><h1>{title.title}</h1><div className="hero-meta"><span>{title.year}</span><i/><span>{title.rating}</span>{title.runtimeMinutes && <><i/><span>{formatRuntime(title.runtimeMinutes)}</span></>}<i/><span>{title.genre.join(" · ")}</span></div><p>{title.overview}</p><div className="actions">{playable && <button className="button button-light"><Play size={18} fill="currentColor"/> Watch now</button>}<button className="button button-glass" onClick={() => setListed(v => !v)}>{listed ? <Check size={18}/> : <Plus size={18}/>} {listed ? "In My List" : "My List"}</button></div></div>
+      <div className="detail-content"><Link className="back-link" to="/"><ChevronLeft size={17}/> Back</Link><span className="eyebrow plain">{title.type === "series" ? "Series" : "Movie"}</span><h1>{title.title}</h1><div className="hero-meta"><span>{title.year}</span><i/><span>{title.rating}</span>{title.runtimeMinutes && <><i/><span>{formatRuntime(title.runtimeMinutes)}</span></>}<i/><span>{title.genre.join(" · ")}</span></div><p>{title.overview}</p><div className="actions">{playable && <button className="button button-light" onClick={() => void startPlayback()} disabled={playbackLoading}>{playbackLoading ? "Loading player…" : <><Play size={18} fill="currentColor"/> Watch now</>}</button>}<button className="button button-glass" onClick={() => setListed(v => !v)}>{listed ? <Check size={18}/> : <Plus size={18}/>} {listed ? "In My List" : "My List"}</button></div></div>
     </section>
+
     <section className="detail-body">
-      {title.seasons && <div className="episodes-panel"><div className="section-title"><div><span className="eyebrow plain">Episodes</span><h2>Season 1</h2></div><button className="season-select">Season 1 <ChevronRight size={16}/></button></div>{title.seasons[0]?.episodes.map(e => <div className="episode-row" key={e.id}><span className="episode-number">{String(e.number).padStart(2,"0")}</span><div className="episode-thumb"><Film size={20}/></div><div className="episode-info"><strong>{e.title}</strong><span><Clock3 size={13}/> {formatRuntime(e.runtimeMinutes)}</span><p>{e.overview ?? "Episode details will appear as catalogue metadata is enriched."}</p></div><button className="episode-play" aria-label={`Play episode ${e.number}`}><Play size={15} fill="currentColor"/></button></div>)}</div>}
-      <aside className="details-aside"><div className="info-card"><span>MovieLab match</span><strong>{title.match ?? 0}%</strong><div className="match-bar"><i style={{width: `${title.match ?? 0}%`}}/></div></div><div className="info-card"><span>Available in</span><strong>Nigeria</strong><small>Provider availability is verified separately from metadata.</small></div></aside>
+      <div>
+        {playbackError && <div className="playback-error" role="alert">{playbackError}</div>}
+        {playbackUrl && <div className="playback-panel"><div className="section-title"><div><span className="eyebrow plain">Now playing</span><h2>{title.title}</h2></div><button className="button button-glass playback-close" onClick={() => setPlaybackUrl(null)}>Close player</button></div><PlaybackFrame src={playbackUrl} title={title.title}/></div>}
+
+        {title.seasons && <div className="episodes-panel"><div className="section-title"><div><span className="eyebrow plain">Episodes</span><h2>Season {selectedSeason}</h2></div>{title.seasons.length > 1 ? <select className="season-select" value={selectedSeason} onChange={event => { setSelectedSeason(Number(event.target.value)); setSelectedEpisode(1); setPlaybackUrl(null); }} aria-label="Select season">{title.seasons.map(season => <option key={season.number} value={season.number}>Season {season.number}</option>)}</select> : <span className="season-select">Season 1</span>}</div>{episodes.map(e => <button className="episode-row" key={e.id} onClick={() => selectEpisode(e.number)}><span className="episode-number">{String(e.number).padStart(2,"0")}</span><span className="episode-thumb"><Film size={20}/></span><span className="episode-info"><strong>{e.title}</strong><span><Clock3 size={13}/> {formatRuntime(e.runtimeMinutes)}</span><p>{e.overview ?? "Episode details will appear as catalogue metadata is enriched."}</p></span><span className="episode-play" aria-hidden="true"><Play size={15} fill="currentColor"/></span></button>)}</div>}
+      </div>
+
+      <aside className="details-aside"><div className="info-card"><span>MovieLab match</span><strong>{title.match ?? 0}%</strong><div className="match-bar"><i style={{width: \`${title.match ?? 0}%\`}}/></div></div><div className="info-card"><span>Metadata source</span><strong>{title.tmdbId ? "TMDB" : "MovieLab"}</strong><small>{title.tmdbId ? "TMDB metadata is connected to NexStream playback." : "This title needs a TMDB identity before playback can be resolved."}</small></div></aside>
     </section>
   </main>;
 }
