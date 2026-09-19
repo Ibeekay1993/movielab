@@ -9,6 +9,38 @@ import { findTitle, formatRuntime, searchTitles } from "../lib/catalog";
 import type { Title } from "../types/catalog";
 import MediaLibrary from "../pages/MediaLibrary";\nimport MovieLabPlayer from "../components/MovieLabPlayer";
 
+function readSavedIds() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem("movielab:list") ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSavedIds(ids: string[]) {
+  localStorage.setItem("movielab:list", JSON.stringify([...new Set(ids)]));
+}
+
+function getContinueWatching(catalog: Title[]) {
+  const progress: Array<{ id: string; position: number }> = [];
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith("movielab:")) continue;
+    const parts = key.split(":");
+    const position = Number(localStorage.getItem(key) ?? 0);
+    if (parts.length >= 2 && parts[1] && Number.isFinite(position) && position > 5) {
+      progress.push({ id: parts[1], position });
+    }
+  }
+  return progress
+    .sort((a, b) => b.position - a.position)
+    .map(item => catalog.find(title => title.id === item.id))
+    .filter((title): title is Title => Boolean(title))
+    .filter((title, index, list) => list.findIndex(item => item.id === title.id) === index)
+    .slice(0, 18);
+}
+
 function Header({ onMenu }: { onMenu: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -134,7 +166,9 @@ function Home() {
   if (!featured) return <main className="page empty catalogue-state"><div className="catalogue-loader"><span/><span/><span/></div><h1>Loading MovieLab</h1><p>Connecting to the live catalogue.</p></main>;
 
   const collection = (key: string) => collections[key] ?? [];
+  const continueWatching = getContinueWatching(catalog);
   const sections = [
+    ...(continueWatching.length ? [{ title: "Continue Watching", titles: continueWatching }] : []),
     { title: "Trending this week", titles: collection("trending"), href: "/movies" },
     { title: "Popular Series", titles: collection("popularTv"), href: "/tv-shows" },
     { title: "Popular Movies", titles: collection("popularMovies"), href: "/movies" },
@@ -210,7 +244,7 @@ function TitlePage() {
   const { catalog } = useCatalog();
   const { slug = "" } = useParams();
   const title = findTitle(catalog, slug);
-  const [listed, setListed] = useState(false);
+  const [listed, setListed] = useState(() => readSavedIds().includes(title?.id ?? ""));
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
   const [playbackLoading, setPlaybackLoading] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
@@ -308,7 +342,13 @@ function TitlePage() {
           {playable && <button className="button button-light" onClick={() => void startPlayback()} disabled={playbackLoading}>
             {playbackLoading ? "Loading player…" : <><Play size={18} fill="currentColor"/> Watch now</>}
           </button>}
-          <button className="button button-glass" onClick={() => setListed(v => !v)}>{listed ? <Check size={18}/> : <Plus size={18}/>} {listed ? "In My List" : "My List"}</button>
+          <button className="button button-glass" onClick={() => {
+  const next = !listed;
+  setListed(next);
+  const ids = readSavedIds().filter(id => id !== title.id);
+  if (next) ids.push(title.id);
+  writeSavedIds(ids);
+}}>{listed ? <Check size={18}/> : <Plus size={18}/>} {listed ? "In My List" : "My List"}</button>
         </div>
       </div>
     </section>
@@ -356,7 +396,17 @@ function TitlePage() {
   </main>;
 }
 
-function MyList() { return <main className="page empty"><div className="empty-icon"><Plus size={28}/></div><h1>Your List</h1><p>Save movies and series here for later.</p><Link className="button button-light" to="/movies">Browse movies</Link></main>; }
+function MyList() {
+  const { catalog } = useCatalog();
+  const saved = new Set(readSavedIds());
+  const titles = catalog.filter(title => saved.has(title.id));
+  return <main className="page">
+    <div className="page-head"><div><span className="eyebrow plain">Your Library</span><h1>My List</h1><p>{titles.length} saved {titles.length === 1 ? "title" : "titles"}</p></div></div>
+    {titles.length
+      ? <div className="grid">{titles.map(title => <Card key={title.id} title={title}/>)}</div>
+      : <div className="empty"><div className="empty-icon"><Plus size={28}/></div><h2>Your list is empty</h2><p>Save movies and series here for later.</p><Link className="button button-light" to="/movies">Browse movies</Link></div>}
+  </main>;
+}
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
