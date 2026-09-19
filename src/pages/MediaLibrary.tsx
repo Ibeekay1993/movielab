@@ -56,6 +56,6 @@ export default function MediaLibrary() {
       {status&&<p className="upload-status"><LoaderCircle size={15}/>{status}</p>}
       {error&&<p className="upload-error"><AlertCircle size={15}/>{error}</p>}
     </section>
-    <div className="upload-note"><Film size={18}/><span>Telegram, TMDB, TVmaze, OMDb, Watchmode and future partner/X connectors remain separate source adapters. Uploading your own media does not replace them.</span></div>
+    <div className="upload-note"><Film size={18}/><span>MovieLab playback is built around authorized media uploaded to the video layer. Metadata and playback are kept separate so catalogue records can exist before media is ready.</span></div>
   </main>;
 }
