@@ -284,7 +284,7 @@ function TitlePage() {
     }
 
     if (!currentTitle.tmdbId) {
-      setPlaybackError("No playback source is configured for this currentTitle.");
+      setPlaybackError("No playback source is configured for this title.");
       return;
     }
 
