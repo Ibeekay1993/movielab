@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, Clock3, Info, Play, Plus, Search, Sparkles, House, Clapperboard, Tv2, UserRound,
-  X, Check, Film, UserCircle2, Flame, Languages, SlidersHorizontal, ArrowUpRight
+  X, Check, Film, UserCircle2, Flame, Languages, ArrowUpRight
 } from "lucide-react";
 import { CatalogProvider, useCatalog } from "../lib/catalog-context";
 import { findTitle, formatRuntime, searchTitles } from "../lib/catalog";
@@ -30,7 +30,7 @@ function Header() {
         <Link to="/movies">Movies</Link>
         <Link to="/series">Series</Link>
         <Link to="/nigerian-cinema">Nigerian</Link>
-        <Link to="/coming-soon">New & Trending</Link>
+        <Link to="/coming-soon">Latest & Trending</Link>
       </nav>
       <div className={`header-search ${openSearch ? "open" : ""}`}>
         <button className="icon-button search-toggle" onClick={() => setOpenSearch(v => !v)} aria-label="Search"><Search size={18}/></button>
@@ -97,32 +97,49 @@ function Hero({ title }: { title: Title }) {
   );
 }
 
-function DiscoveryBar() {
-  const categories = ["Action", "Drama", "Comedy", "Romance", "Thriller", "K-Drama", "Nollywood", "Anime"];
-  return <section className="discovery-bar" aria-label="Browse categories">
-    <div className="discovery-inner">
-      <div className="discovery-label"><SlidersHorizontal size={15}/> Browse</div>
-      <div className="category-chips">
-        {categories.map(category => <Link key={category} className="category-chip" to={`/search?q=${encodeURIComponent(category)}`}>{category}</Link>)}
-      </div>
-    </div>
-  </section>;
+function CollectionRail({ title, titles, href, ranked = false }: { title: string; titles: Title[]; href?: string; ranked?: boolean }) {
+  return <Rail title={title} titles={titles.slice(0, 18)} ranked={ranked} href={href}/>;
 }
 
 function Home() {
   const { catalog } = useCatalog();
   const featured = catalog.find(t => t.featured) ?? catalog[0];
+  if (!featured) return <main className="page empty"><h1>MovieLab is loading</h1><p>The catalogue is being prepared.</p></main>;
+
   const movies = catalog.filter(t => t.type === "movie");
   const series = catalog.filter(t => t.type === "series");
   const nigeria = catalog.filter(t => t.country.some(c => c.toLowerCase() === "nigeria"));
-  return <><Hero title={featured}/><DiscoveryBar/><main className="home-content">
-    <Rail title="Continue Watching" subtitle="Pick up where you left off" titles={catalog.slice(0,4)} href="/my-list"/>
-    <Rail title="Trending in Nigeria" subtitle="What people are watching now" titles={nigeria.length ? nigeria : catalog} href="/nigerian-cinema"/>
-    <Rail title="Top 10 on MovieLab" subtitle="The titles getting the most attention" titles={catalog} ranked/>
-    <Rail title="Nigerian Cinema" subtitle="Stories from home and across Africa" titles={nigeria.length ? nigeria : movies} href="/nigerian-cinema"/>
-    <Rail title="Popular Movies" titles={movies} href="/movies"/>
-    <Rail title="Popular Series" titles={series} href="/series"/>
-  </main></>;
+  const byGenre = (genres: string[]) => catalog.filter(t => t.genre.some(g => genres.some(target => g.toLowerCase() === target.toLowerCase())));
+  const sections = [
+    { title: "Popular Series", titles: series, href: "/series" },
+    { title: "Popular Movies", titles: movies, href: "/movies" },
+    { title: "Nollywood", titles: nigeria, href: "/nigerian-cinema" },
+    { title: "Action & Thriller", titles: byGenre(["Action", "Thriller"]) },
+    { title: "Drama", titles: byGenre(["Drama"]) },
+    { title: "Comedy", titles: byGenre(["Comedy"]) },
+    { title: "Romance", titles: byGenre(["Romance"]) },
+    { title: "Animation", titles: byGenre(["Animation", "Anime"]) },
+    { title: "New & Trending", titles: [...catalog].sort((a, b) => b.year - a.year), href: "/coming-soon", ranked: true },
+  ];
+
+  return <>
+    <Hero title={featured}/>
+    <main className="home-content">
+      <section className="quick-browse" aria-label="Browse MovieLab">
+        <div className="quick-browse-copy"><span className="eyebrow">Explore MovieLab</span><strong>Find your next watch</strong></div>
+        <div className="quick-links">
+          <Link to="/movies">Movies</Link>
+          <Link to="/series">Series</Link>
+          <Link to="/nigerian-cinema">Nigerian</Link>
+          <Link to="/search?q=Action">Action</Link>
+          <Link to="/search?q=Drama">Drama</Link>
+        </div>
+      </section>
+      {sections.map(section => section.titles.length > 0 && (
+        <CollectionRail key={section.title} {...section}/>
+      ))}
+    </main>
+  </>;
 }
 
 function Listing({ type, title }: { type: "movie" | "series"; title?: string }) {
