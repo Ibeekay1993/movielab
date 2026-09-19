@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  ChevronLeft, ChevronRight, Clock3, Info, Play, Plus, Search, Sparkles, House, Clapperboard, Tv2, UserRound,
-  X, Check, Film, UserCircle2, Flame, Languages, ArrowUpRight
+  ChevronLeft, ChevronRight, Clock3, Info, Play, Plus, Search, Sparkles, House, Clapperboard, Tv2,
+  X, Check, Film, UserCircle2, Flame, Languages, ArrowUpRight, Menu, Moon, Bot, TrendingUp, Drama, Laugh, Heart, Ghost, LayoutGrid
 } from "lucide-react";
 import { CatalogProvider, useCatalog } from "../lib/catalog-context";
 import { findTitle, formatRuntime, searchTitles } from "../lib/catalog";
@@ -132,7 +132,7 @@ function CollectionRail({ title, titles, href, ranked = false }: { title: string
 function Home() {
   const { catalog } = useCatalog();
   const featured = catalog.find(t => t.featured) ?? catalog[0];
-  if (!featured) return <main className="page empty"><h1>MovieLab is loading</h1><p>The catalogue is being prepared.</p></main>;
+  if (!featured) return <main className="page empty catalogue-state"><div className="catalogue-loader"><span/><span/><span/></div><h1>Loading MovieLab</h1><p>Connecting to the live catalogue.</p></main>;
 
   const movies = catalog.filter(t => t.type === "movie");
   const series = catalog.filter(t => t.type === "series");
@@ -153,16 +153,6 @@ function Home() {
   return <>
     <Hero title={featured}/>
     <main className="home-content">
-      <section className="quick-browse" aria-label="Browse MovieLab">
-        <div className="quick-browse-copy"><span className="eyebrow">Explore MovieLab</span><strong>Find your next watch</strong></div>
-        <div className="quick-links">
-          <Link to="/movies">Movies</Link>
-          <Link to="/tv-shows">TV Shows</Link>
-          <Link to="/midnight">Midnight</Link>
-          <Link to="/animation">Animation</Link>
-          <Link to="/nigerian-cinema">Nollywood</Link>
-        </div>
-      </section>
       {sections.map(section => section.titles.length > 0 && (
         <CollectionRail key={section.title} {...section}/>
       ))}
