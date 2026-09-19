@@ -30,7 +30,7 @@ function mapRow(row: any): Title {
     runtimeMinutes: row.runtime_minutes ?? undefined, genre: genres, type: row.type,
     overview: row.overview ?? "", posterUrl: row.poster_url ?? "", backdropUrl: row.backdrop_url ?? "",
     featured: Boolean(row.featured), country: row.countries ?? [], language: row.languages ?? [],
-    match: row.match ?? undefined, availability: [], seasons: seasons.length ? seasons : undefined,
+    match: row.match ?? undefined, availability: (() => { const mediaUrl = row.playback_url ?? row.hls_url ?? row.media_url ?? row.stream_url; return mediaUrl ? [{ provider: "MovieLab", kind: "movielab" as const, territory: "GLOBAL", label: "MovieLab Player", url: mediaUrl }] : []; })(), seasons: seasons.length ? seasons : undefined,
     tmdbId: row.tmdb_id ?? undefined,
   };
 }
