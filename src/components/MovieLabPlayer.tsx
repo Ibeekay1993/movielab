@@ -126,7 +126,7 @@ export default function MovieLabPlayer({ src, title, poster, storageKey, onEnded
       video.src = src;
     }
 
-    function cleanup() {
+    const cleanup = () => {
       if (saveRef.current) window.clearTimeout(saveRef.current);
       if (hideRef.current) window.clearTimeout(hideRef.current);
       video.removeEventListener("loadedmetadata", onMeta);
