@@ -30,20 +30,38 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!supabase) return;
+    const client = supabase;
+    if (!client) return;
+
     let cancelled = false;
+
     async function load() {
-      const { data, error: queryError } = await supabase.from("titles")
+      const { data, error: queryError } = await client.from("titles")
         .select("*, title_genres(genres(*)), seasons(*, episodes(*))")
-        .eq("status", "published").order("featured", { ascending: false }).order("created_at", { ascending: false });
+        .eq("status", "published")
+        .order("featured", { ascending: false })
+        .order("created_at", { ascending: false });
+
       if (cancelled) return;
-      if (queryError) { setError(queryError.message); setLoading(false); return; }
-      setCatalog(data?.length ? data.map(mapRow) : fallbackCatalog); setLoading(false);
+      if (queryError) {
+        setError(queryError.message);
+        setLoading(false);
+        return;
+      }
+
+      setCatalog(data?.length ? data.map(mapRow) : fallbackCatalog);
+      setLoading(false);
     }
+
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return <CatalogContext.Provider value={{ catalog, loading, error }}>{children}</CatalogContext.Provider>;
 }
-export function useCatalog() { return useContext(CatalogContext); }
+
+export function useCatalog() {
+  return useContext(CatalogContext);
+}
