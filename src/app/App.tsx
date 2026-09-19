@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, Clock3, Info, Play, Plus, Search, Sparkles, House, Clapperboard, Tv2, UserRound,
-  X, Check, Film, UserCircle2
+  X, Check, Film, UserCircle2, Flame, Languages, SlidersHorizontal, ArrowUpRight
 } from "lucide-react";
 import { CatalogProvider, useCatalog } from "../lib/catalog-context";
 import { findTitle, formatRuntime, searchTitles } from "../lib/catalog";
@@ -33,11 +33,12 @@ function Header() {
         <Link to="/coming-soon">New & Trending</Link>
       </nav>
       <div className={`header-search ${openSearch ? "open" : ""}`}>
-        <button className="icon-button search-toggle" onClick={() => setOpenSearch(v => !v)} aria-label="Search"><Search size={19}/></button>
+        <button className="icon-button search-toggle" onClick={() => setOpenSearch(v => !v)} aria-label="Search"><Search size={18}/></button>
         {openSearch && <input autoFocus value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="Titles, people, genres..." aria-label="Search MovieLab"/>}
         {openSearch && query && <button className="search-clear" onClick={() => {setQuery(""); submit("")}} aria-label="Clear search"><X size={16}/></button>}
       </div>
       <Link className="header-list" to="/my-list">My List</Link>
+      <button className="language-button" aria-label="Language"><Languages size={16}/><span>EN</span></button>
       <button className="profile-button" aria-label="Profile"><UserCircle2 size={28}/></button>
     </header>
   );
@@ -50,20 +51,22 @@ function Card({ title, rank }: { title: Title; rank?: number }) {
       <div className="poster">
         {title.posterUrl ? <img src={title.posterUrl} alt="" loading="lazy"/> : <div className="poster-fallback"><Film size={28}/><span>{title.title}</span></div>}
         <div className="poster-gradient"/>
+        <div className="card-topline"><span>{title.type === "series" ? "SERIES" : "MOVIE"}</span>{title.featured && <span className="featured-dot"><Flame size={11} fill="currentColor"/></span>}</div>
         <div className="card-copy"><strong>{title.title}</strong><span>{title.year} · {title.genre.slice(0,2).join(" · ")}</span></div>
+        <div className="card-hover"><span className="hover-play"><Play size={16} fill="currentColor"/></span><span>View details</span></div>
         {title.availability.some(a => a.kind === "movielab") && <span className="card-play"><Play size={13} fill="currentColor"/></span>}
       </div>
     </Link>
   );
 }
 
-function Rail({ title, subtitle, titles, ranked = false }: { title: string; subtitle?: string; titles: Title[]; ranked?: boolean }) {
+function Rail({ title, subtitle, titles, ranked = false, href }: { title: string; subtitle?: string; titles: Title[]; ranked?: boolean; href?: string }) {
   const [offset, setOffset] = useState(0);
   if (!titles.length) return null;
   return (
     <section className="rail-section">
       <div className="rail-heading">
-        <div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
+        <div className="rail-heading-copy"><div className="rail-title-line"><h2>{title}</h2>{href && <Link className="rail-more" to={href}>View all <ArrowUpRight size={13}/></Link>}</div>{subtitle && <p>{subtitle}</p>}</div>
         <div className="rail-controls">
           <button className="rail-arrow" onClick={() => setOffset(Math.max(0, offset - 1))} aria-label="Previous"><ChevronLeft size={18}/></button>
           <button className="rail-arrow" onClick={() => setOffset(offset + 1)} aria-label="Next"><ChevronRight size={18}/></button>
@@ -84,6 +87,7 @@ function Hero({ title }: { title: Title }) {
         <h1>{title.title}</h1>
         <div className="hero-meta"><span>{title.year}</span><i/> <span>{title.rating}</span><i/> <span>{formatRuntime(title.runtimeMinutes)}</span><i/> <span>{title.genre.slice(0,3).join(" · ")}</span></div>
         <p>{title.overview}</p>
+        <div className="hero-stats"><span><strong>{title.match ?? 90}%</strong> Match</span><span>MovieLab Original</span><span>HD</span></div>
         <div className="actions">
           <Link className="button button-light" to={`/title/${title.slug}`}><Play size={18} fill="currentColor"/> Play</Link>
           <Link className="button button-glass" to={`/title/${title.slug}`}><Info size={18}/> More Info</Link>
@@ -93,19 +97,31 @@ function Hero({ title }: { title: Title }) {
   );
 }
 
+function DiscoveryBar() {
+  const categories = ["Action", "Drama", "Comedy", "Romance", "Thriller", "K-Drama", "Nollywood", "Anime"];
+  return <section className="discovery-bar" aria-label="Browse categories">
+    <div className="discovery-inner">
+      <div className="discovery-label"><SlidersHorizontal size={15}/> Browse</div>
+      <div className="category-chips">
+        {categories.map(category => <Link key={category} className="category-chip" to={`/search?q=${encodeURIComponent(category)}`}>{category}</Link>)}
+      </div>
+    </div>
+  </section>;
+}
+
 function Home() {
   const { catalog } = useCatalog();
   const featured = catalog.find(t => t.featured) ?? catalog[0];
   const movies = catalog.filter(t => t.type === "movie");
   const series = catalog.filter(t => t.type === "series");
   const nigeria = catalog.filter(t => t.country.some(c => c.toLowerCase() === "nigeria"));
-  return <><Hero title={featured}/><main className="home-content">
-    <Rail title="Continue Watching" subtitle="Pick up where you left off" titles={catalog.slice(0,4)}/>
-    <Rail title="Trending in Nigeria" subtitle="What people are watching now" titles={nigeria.length ? nigeria : catalog}/>
-    <Rail title="Top 10 on MovieLab" titles={catalog} ranked/>
-    <Rail title="Nigerian Cinema" subtitle="Stories from home and across Africa" titles={nigeria.length ? nigeria : movies}/>
-    <Rail title="Popular Movies" titles={movies}/>
-    <Rail title="Popular Series" titles={series}/>
+  return <><Hero title={featured}/><DiscoveryBar/><main className="home-content">
+    <Rail title="Continue Watching" subtitle="Pick up where you left off" titles={catalog.slice(0,4)} href="/my-list"/>
+    <Rail title="Trending in Nigeria" subtitle="What people are watching now" titles={nigeria.length ? nigeria : catalog} href="/nigerian-cinema"/>
+    <Rail title="Top 10 on MovieLab" subtitle="The titles getting the most attention" titles={catalog} ranked/>
+    <Rail title="Nigerian Cinema" subtitle="Stories from home and across Africa" titles={nigeria.length ? nigeria : movies} href="/nigerian-cinema"/>
+    <Rail title="Popular Movies" titles={movies} href="/movies"/>
+    <Rail title="Popular Series" titles={series} href="/series"/>
   </main></>;
 }
 
