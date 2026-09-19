@@ -3,8 +3,16 @@ import { catalog as fallbackCatalog } from "../data/catalog";
 import { supabase } from "./supabase";
 import type { Availability, Title } from "../types/catalog";
 
-type CatalogContextValue = { catalog: Title[]; loading: boolean; error: string | null };
-const CatalogContext = createContext<CatalogContextValue>({ catalog: [], loading: true, error: null });
+export type CatalogCollection = Record<string, Title[]>;
+type CatalogContextValue = {
+  catalog: Title[];
+  collections: CatalogCollection;
+  loading: boolean;
+  error: string | null;
+};
+const CatalogContext = createContext<CatalogContextValue>({
+  catalog: [], collections: {}, loading: true, error: null
+});
 
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 
@@ -68,16 +76,35 @@ function mergeCatalog(primary: Title[], tmdb: Title[]) {
   return [...merged.values()];
 }
 
-async function fetchTmdbCatalog(): Promise<Title[]> {
+async function fetchTmdbCatalog(): Promise<{ catalog: Title[]; collections: CatalogCollection }> {
   const response = await fetch("/api/tmdb-catalog");
   if (!response.ok) throw new Error(`TMDB source returned HTTP ${response.status}`);
   const payload = await response.json();
-  return Array.isArray(payload.results) ? payload.results.map(mapTmdbRow) : [];
+  const collections: CatalogCollection = {};
+  for (const [key, rows] of Object.entries(payload.collections ?? {})) {
+    collections[key] = Array.isArray(rows) ? rows.map(mapTmdbRow) : [];
+  }
+  const catalog = Array.isArray(payload.results) ? payload.results.map(mapTmdbRow) : [];
+  return { catalog, collections };
+}
+
+function normalizeCollections(collections: CatalogCollection, databaseCatalog: Title[]) {
+  const byKey = new Map<string, Title>();
+  for (const item of databaseCatalog) {
+    if (item.tmdbId) byKey.set(`tmdb:${item.tmdbId}:${item.type}`, item);
+  }
+  return Object.fromEntries(
+    Object.entries(collections).map(([key, items]) => [
+      key,
+      items.map(item => byKey.get(`tmdb:${item.tmdbId}:${item.type}`) ?? item),
+    ]),
+  );
 }
 
 export function CatalogProvider({ children }: { children: ReactNode }) {
   const [catalog, setCatalog] = useState<Title[]>([]);
-  const [loading, setLoading] = useState(Boolean(supabase));
+  const [collections, setCollections] = useState<CatalogCollection>({});
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -87,6 +114,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     async function load() {
       let databaseCatalog: Title[] = [];
       let tmdbCatalog: Title[] = [];
+      let tmdbCollections: CatalogCollection = {};
 
       if (client) {
         const { data, error: queryError } = await client.from("titles")
@@ -100,7 +128,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        tmdbCatalog = await fetchTmdbCatalog();
+        const tmdb = await fetchTmdbCatalog();
+        tmdbCatalog = tmdb.catalog;
+        tmdbCollections = tmdb.collections;
       } catch (tmdbError) {
         if (!databaseCatalog.length) setError(tmdbError instanceof Error ? tmdbError.message : "TMDB source unavailable");
       }
@@ -109,6 +139,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       const merged = mergeCatalog(databaseCatalog, tmdbCatalog);
       const allowDemoFallback = import.meta.env.VITE_APP_ENV !== "production";
       setCatalog(merged.length ? merged : (allowDemoFallback ? fallbackCatalog : []));
+      setCollections(tmdbCollections);
       if (!merged.length && !allowDemoFallback) setError("No production catalogue is available yet.");
       setLoading(false);
     }
@@ -117,7 +148,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  return <CatalogContext.Provider value={{ catalog, loading, error }}>{children}</CatalogContext.Provider>;
+  return <CatalogContext.Provider value={{ catalog, collections, loading, error }}>{children}</CatalogContext.Provider>;
 }
 
 export function useCatalog() {
