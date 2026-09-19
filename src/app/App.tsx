@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, Clock3, Info, Play, Plus, Search, Sparkles,
-  TrendingUp, X, Check, Film, Tv, UserCircle2
+  X, Check, Film, UserCircle2
 } from "lucide-react";
 import { catalog } from "../data/catalog";
 import { findTitle, formatRuntime, searchTitles } from "../lib/catalog";
