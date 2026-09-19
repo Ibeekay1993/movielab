@@ -9,39 +9,67 @@ import { findTitle, formatRuntime, searchTitles } from "../lib/catalog";
 import type { Title } from "../types/catalog";
 import MediaLibrary from "../pages/MediaLibrary";
 
-function Header() {
+function Header({ onMenu }: { onMenu: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const initial = params.get("q") ?? "";
   const [query, setQuery] = useState(initial);
   const [openSearch, setOpenSearch] = useState(Boolean(initial));
-
-  function submit(value = query) {
-    const q = value.trim();
-    if (q) navigate(q ? `/search?q=${encodeURIComponent(q)}` : "/");
-  }
-
-  return (
-    <header className="header">
-      <Link className="brand" to="/" aria-label="MovieLab home"><span>◈</span>MOVIELAB</Link>
-      <nav className="desktop-nav" aria-label="Primary navigation">
-        <Link className={location.pathname === "/" ? "active" : ""} to="/">Home</Link>
-        <Link to="/movies">Movies</Link>
-        <Link to="/series">Series</Link>
-        <Link to="/nigerian-cinema">Nigerian</Link>
-        <Link to="/coming-soon">Latest & Trending</Link>
-      </nav>
-      <div className={`header-search ${openSearch ? "open" : ""}`}>
-        <button className="icon-button search-toggle" onClick={() => setOpenSearch(v => !v)} aria-label="Search"><Search size={18}/></button>
-        {openSearch && <input autoFocus value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="Titles, people, genres..." aria-label="Search MovieLab"/>}
-        {openSearch && query && <button className="search-clear" onClick={() => {setQuery(""); submit("")}} aria-label="Clear search"><X size={16}/></button>}
+  function submit(value = query) { const q = value.trim(); if (q) navigate("/search?q=" + encodeURIComponent(q)); }
+  const primary = [
+    { label: "Home", to: "/" }, { label: "TV Shows", to: "/tv-shows" },
+    { label: "Movies", to: "/movies" }, { label: "Midnight", to: "/midnight" },
+    { label: "Animation", to: "/animation" },
+  ];
+  return <header className="header">
+    <button className="menu-button" onClick={onMenu} aria-label="Open MovieLab menu"><Menu size={20}/></button>
+    <Link className="brand" to="/" aria-label="MovieLab home"><span>◈</span>MOVIELAB</Link>
+    <nav className="desktop-nav" aria-label="Primary navigation">{primary.map(item => <Link key={item.to} className={location.pathname === item.to ? "active" : ""} to={item.to}>{item.label}</Link>)}</nav>
+    <div className={"header-search " + (openSearch ? "open" : "")}>
+      <button className="icon-button search-toggle" onClick={() => setOpenSearch(v => !v)} aria-label="Search"><Search size={18}/></button>
+      {openSearch && <input autoFocus value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="Titles, people, genres..." aria-label="Search MovieLab"/>}
+      {openSearch && query && <button className="search-clear" onClick={() => {setQuery(""); setOpenSearch(false); navigate("/")}} aria-label="Clear search"><X size={16}/></button>}
+    </div>
+    <Link className="header-list" to="/my-list">My List</Link>
+    <button className="language-button" aria-label="Language"><Languages size={16}/><span>EN</span></button>
+    <button className="profile-button" aria-label="Profile"><UserCircle2 size={28}/></button>
+  </header>;
+}
+const sidebarGroups = [
+  { label: "Browse", items: [
+    { label: "Home", to: "/", icon: House }, { label: "Movies", to: "/movies", icon: Clapperboard },
+    { label: "TV Shows", to: "/tv-shows", icon: Tv2 }, { label: "Midnight", to: "/midnight", icon: Moon },
+    { label: "Animation", to: "/animation", icon: Bot },
+  ]},
+  { label: "Genres", items: [
+    { label: "Action", to: "/search?q=Action", icon: TrendingUp }, { label: "Drama", to: "/search?q=Drama", icon: Drama },
+    { label: "Comedy", to: "/search?q=Comedy", icon: Laugh }, { label: "Romance", to: "/search?q=Romance", icon: Heart },
+    { label: "Thriller", to: "/search?q=Thriller", icon: Ghost }, { label: "Nollywood", to: "/nigerian-cinema", icon: Sparkles },
+  ]},
+  { label: "Collections", items: [
+    { label: "New & Trending", to: "/coming-soon", icon: Flame }, { label: "My List", to: "/my-list", icon: Plus },
+  ]},
+];
+function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const location = useLocation();
+  return <>
+    <button className={"sidebar-scrim " + (open ? "visible" : "")} onClick={onClose} aria-label="Close menu"/>
+    <aside className={"sidebar " + (open ? "open" : "")} aria-label="MovieLab catalogue menu">
+      <div className="sidebar-inner">
+        <div className="sidebar-top"><span>Browse MovieLab</span><button onClick={onClose} aria-label="Close menu"><X size={17}/></button></div>
+        {sidebarGroups.map(group => <section className="sidebar-group" key={group.label}>
+          <div className="sidebar-label">{group.label}</div>
+          <nav>{group.items.map(item => {
+            const Icon = item.icon;
+            const active = item.to === "/" ? location.pathname === "/" : location.pathname === item.to;
+            return <Link key={item.to} className={active ? "active" : ""} to={item.to} onClick={onClose}><Icon size={16}/><span>{item.label}</span></Link>;
+          })}</nav>
+        </section>)}
+        <div className="sidebar-footer"><Link to="/cms/media" onClick={onClose}><LayoutGrid size={15}/> Media Library</Link></div>
       </div>
-      <Link className="header-list" to="/my-list">My List</Link>
-      <button className="language-button" aria-label="Language"><Languages size={16}/><span>EN</span></button>
-      <button className="profile-button" aria-label="Profile"><UserCircle2 size={28}/></button>
-    </header>
-  );
+    </aside>
+  </>;
 }
 
 function Card({ title, rank }: { title: Title; rank?: number }) {
@@ -111,7 +139,7 @@ function Home() {
   const nigeria = catalog.filter(t => t.country.some(c => c.toLowerCase() === "nigeria"));
   const byGenre = (genres: string[]) => catalog.filter(t => t.genre.some(g => genres.some(target => g.toLowerCase() === target.toLowerCase())));
   const sections = [
-    { title: "Popular Series", titles: series, href: "/series" },
+    { title: "Popular Series", titles: series, href: "/tv-shows" },
     { title: "Popular Movies", titles: movies, href: "/movies" },
     { title: "Nollywood", titles: nigeria, href: "/nigerian-cinema" },
     { title: "Action & Thriller", titles: byGenre(["Action", "Thriller"]) },
@@ -129,10 +157,10 @@ function Home() {
         <div className="quick-browse-copy"><span className="eyebrow">Explore MovieLab</span><strong>Find your next watch</strong></div>
         <div className="quick-links">
           <Link to="/movies">Movies</Link>
-          <Link to="/series">Series</Link>
-          <Link to="/nigerian-cinema">Nigerian</Link>
-          <Link to="/search?q=Action">Action</Link>
-          <Link to="/search?q=Drama">Drama</Link>
+          <Link to="/tv-shows">TV Shows</Link>
+          <Link to="/midnight">Midnight</Link>
+          <Link to="/animation">Animation</Link>
+          <Link to="/nigerian-cinema">Nollywood</Link>
         </div>
       </section>
       {sections.map(section => section.titles.length > 0 && (
@@ -142,10 +170,31 @@ function Home() {
   </>;
 }
 
-function Listing({ type, title }: { type: "movie" | "series"; title?: string }) {
+type CollectionKey = "home" | "movies" | "tv-shows" | "midnight" | "animation";
+
+function getCollection(catalog: Title[], collection: CollectionKey) {
+  if (collection === "movies") return catalog.filter(t => t.type === "movie");
+  if (collection === "tv-shows") return catalog.filter(t => t.type === "series");
+  if (collection === "animation") return catalog.filter(t => t.genre.some(g => ["animation", "anime"].includes(g.toLowerCase())));
+  if (collection === "midnight") return catalog.filter(t => t.genre.some(g => ["horror", "thriller", "crime", "mystery"].includes(g.toLowerCase())));
+  return catalog;
+}
+function Listing({ collection, title, description }: { collection: CollectionKey; title: string; description: string }) {
   const { catalog } = useCatalog();
-  const titles = type === "movie" ? catalog.filter(t => t.type === "movie") : catalog.filter(t => t.type === "series");
-  return <main className="page"><div className="page-head"><div><span className="eyebrow plain">{type === "movie" ? "MovieLab Cinema" : "Binge-worthy television"}</span><h1>{title ?? (type === "movie" ? "Movies" : "Series")}</h1><p>Explore the MovieLab catalogue.</p></div><div className="filter-pill">{titles.length} titles</div></div><div className="grid">{titles.map(t => <Card key={t.id} title={t}/>)}</div></main>;
+  const titles = getCollection(catalog, collection);
+  const byGenre = (genres: string[]) => titles.filter(t => t.genre.some(g => genres.includes(g.toLowerCase())));
+  const sections = [
+    { title: "Popular", titles }, { title: "Latest", titles: [...titles].sort((a, b) => b.year - a.year) },
+    { title: "Action", titles: byGenre(["action"]) }, { title: "Drama", titles: byGenre(["drama"]) },
+    { title: "Comedy", titles: byGenre(["comedy"]) }, { title: "Romance", titles: byGenre(["romance"]) },
+    { title: "Thriller", titles: byGenre(["thriller"]) },
+    { title: "Nollywood", titles: titles.filter(t => t.country.some(c => c.toLowerCase() === "nigeria")) },
+  ].filter(section => section.titles.length);
+  return <main className="catalogue-page">
+    <div className="catalogue-header"><div><span className="eyebrow plain">MovieLab Catalogue</span><h1>{title}</h1><p>{description}</p></div><span className="filter-pill">{titles.length} {titles.length === 1 ? "title" : "titles"}</span></div>
+    <div className="catalogue-sections">{sections.map((section, i) => <CollectionRail key={section.title} title={section.title} titles={section.titles} ranked={i === 0 && collection !== "home"}/>)}</div>
+    {!titles.length && <div className="empty catalogue-empty"><Film size={38}/><h2>No titles yet</h2><p>MovieLab will show this collection as catalogue data is added.</p></div>}
+  </main>;
 }
 
 function SearchPage() {
@@ -178,6 +227,28 @@ function TitlePage() {
 function MyList() { return <main className="page empty"><div className="empty-icon"><Plus size={28}/></div><h1>Your List</h1><p>Save movies and series here for later.</p><Link className="button button-light" to="/movies">Browse movies</Link></main>; }
 
 export default function App() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-  return <CatalogProvider><div className="app"><Header/><Routes><Route path="/" element={<Home/>}/><Route path="/movies" element={<Listing type="movie"/>}/><Route path="/series" element={<Listing type="series"/>}/><Route path="/nigerian-cinema" element={<Listing type="movie" title="Nigerian Cinema"/>}/><Route path="/coming-soon" element={<Listing type="movie" title="New & Trending"/>}/><Route path="/search" element={<SearchPage/>}/><Route path="/title/:slug" element={<TitlePage/>}/><Route path="/my-list" element={<MyList/>}/><Route path="/cms/media" element={<MediaLibrary/>}/><Route path="*" element={<main className="page empty"><h1>Page not found</h1><Link className="button button-light" to="/">Return home</Link></main>}/></Routes><nav className="mobile-nav" aria-label="Mobile navigation"><Link to="/" className={location.pathname === "/" ? "active" : ""}><House size={18}/><span>Home</span></Link><Link to="/movies"><Clapperboard size={18}/><span>Movies</span></Link><Link to="/series"><Tv2 size={18}/><span>Series</span></Link><Link to="/nigerian-cinema"><span className="mobile-naija">NG</span><span>Nigerian</span></Link><Link to="/my-list"><UserRound size={18}/><span>My List</span></Link></nav></div></CatalogProvider>;
+  return <CatalogProvider><div className="app">
+    <Header onMenu={() => setSidebarOpen(true)}/><Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
+    <Routes>
+      <Route path="/" element={<Home/>}/>
+      <Route path="/movies" element={<Listing collection="movies" title="Movies" description="The MovieLab movie catalogue, organised for quick browsing."/>}/>
+      <Route path="/tv-shows" element={<Listing collection="tv-shows" title="TV Shows" description="Series, seasons and episodes across the MovieLab catalogue."/>}/>
+      <Route path="/series" element={<Listing collection="tv-shows" title="TV Shows" description="Series, seasons and episodes across the MovieLab catalogue."/>}/>
+      <Route path="/midnight" element={<Listing collection="midnight" title="Midnight" description="Dark, tense and after-hours viewing from the MovieLab catalogue."/>}/>
+      <Route path="/animation" element={<Listing collection="animation" title="Animation" description="Animated films and series in one dedicated MovieLab destination."/>}/>
+      <Route path="/nigerian-cinema" element={<Listing collection="movies" title="Nigerian Cinema" description="Nollywood titles from the MovieLab catalogue."/>}/>
+      <Route path="/coming-soon" element={<Listing collection="home" title="New & Trending" description="Recently added and currently highlighted MovieLab titles."/>}/>
+      <Route path="/search" element={<SearchPage/>}/><Route path="/title/:slug" element={<TitlePage/>}/><Route path="/my-list" element={<MyList/>}/><Route path="/cms/media" element={<MediaLibrary/>}/>
+      <Route path="*" element={<main className="page empty"><h1>Page not found</h1><Link className="button button-light" to="/">Return home</Link></main>}/>
+    </Routes>
+    <nav className="mobile-nav" aria-label="Mobile navigation">
+      <Link to="/" className={location.pathname === "/" ? "active" : ""}><House size={18}/><span>Home</span></Link>
+      <Link to="/movies"><Clapperboard size={18}/><span>Movies</span></Link>
+      <Link to="/tv-shows"><Tv2 size={18}/><span>TV Shows</span></Link>
+      <Link to="/animation"><Bot size={18}/><span>Animation</span></Link>
+      <button onClick={() => setSidebarOpen(true)}><Menu size={18}/><span>Menu</span></button>
+    </nav>
+  </div></CatalogProvider>;
 }
