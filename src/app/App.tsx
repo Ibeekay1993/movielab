@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, Clock3, Info, Play, Plus, Search, Sparkles, House, Clapperboard, Tv2,
@@ -254,12 +254,17 @@ function TitlePage() {
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const playbackPanelRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!playbackUrl) return;
-    const frame = window.requestAnimationFrame(() => {
-      playbackPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
-    });
-    return () => window.cancelAnimationFrame(frame);
+    const panel = playbackPanelRef.current;
+    if (!panel) return;
+
+    const header = document.querySelector(".header");
+    const headerHeight = header instanceof HTMLElement ? header.getBoundingClientRect().height : 0;
+    const panelTop = window.scrollY + panel.getBoundingClientRect().top;
+    const targetTop = Math.max(0, panelTop - headerHeight - 12);
+
+    window.scrollTo({ top: targetTop, behavior: "instant" });
   }, [playbackUrl]);
 
   if (!title) return <main className="page empty"><h1>Title not found</h1><Link className="button button-light" to="/">Back home</Link></main>;
