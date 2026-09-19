@@ -16,6 +16,29 @@ const CatalogContext = createContext<CatalogContextValue>({
 
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 
+function firstMediaUrl(value: any): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const direct = [
+    value.playback_url, value.playbackUrl, value.hls_url, value.hlsUrl,
+    value.manifest_url, value.manifestUrl, value.media_url, value.mediaUrl,
+    value.stream_url, value.streamUrl,
+  ].find(item => typeof item === "string" && item.trim());
+  if (direct) return direct;
+  for (const key of ["sources", "source", "media", "media_asset", "media_assets", "playback"]) {
+    const nested = value[key];
+    if (Array.isArray(nested)) {
+      for (const item of nested) {
+        const url = firstMediaUrl(item);
+        if (url) return url;
+      }
+    } else {
+      const url = firstMediaUrl(nested);
+      if (url) return url;
+    }
+  }
+  return undefined;
+}
+
 function mapRow(row: any): Title {
   const genres = (row.title_genres ?? []).map((item: any) => item.genres?.name).filter(Boolean);
   const seasons = (row.seasons ?? []).sort((a: any, b: any) => a.season_number - b.season_number).map((season: any) => ({
@@ -23,14 +46,18 @@ function mapRow(row: any): Title {
     episodes: (season.episodes ?? []).sort((a: any, b: any) => a.episode_number - b.episode_number).map((episode: any) => ({
       id: episode.id, number: episode.episode_number, title: episode.title,
       runtimeMinutes: episode.runtime_minutes ?? 0, overview: episode.overview ?? undefined,
+      playbackUrl: firstMediaUrl(episode),
     })),
   }));
+  const mediaUrl = firstMediaUrl(row);
   return {
     id: row.id, slug: row.slug, title: row.title, year: row.year ?? 0, rating: row.rating ?? "NR",
     runtimeMinutes: row.runtime_minutes ?? undefined, genre: genres, type: row.type,
     overview: row.overview ?? "", posterUrl: row.poster_url ?? "", backdropUrl: row.backdrop_url ?? "",
     featured: Boolean(row.featured), country: row.countries ?? [], language: row.languages ?? [],
-    match: row.match ?? undefined, availability: (() => { const mediaUrl = row.playback_url ?? row.hls_url ?? row.media_url ?? row.stream_url; return mediaUrl ? [{ provider: "MovieLab", kind: "movielab" as const, territory: "GLOBAL", label: "MovieLab Player", url: mediaUrl }] : []; })(), seasons: seasons.length ? seasons : undefined,
+    match: row.match ?? undefined,
+    availability: mediaUrl ? [{ provider: "MovieLab", kind: "movielab" as const, territory: "GLOBAL", label: "MovieLab Player", url: mediaUrl }] : [],
+    seasons: seasons.length ? seasons : undefined,
     tmdbId: row.tmdb_id ?? undefined,
   };
 }
