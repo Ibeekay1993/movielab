@@ -4,7 +4,7 @@ import { supabase } from "./supabase";
 import type { Availability, Title } from "../types/catalog";
 
 type CatalogContextValue = { catalog: Title[]; loading: boolean; error: string | null };
-const CatalogContext = createContext<CatalogContextValue>({ catalog: fallbackCatalog, loading: false, error: null });
+const CatalogContext = createContext<CatalogContextValue>({ catalog: [], loading: true, error: null });
 
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 
@@ -76,7 +76,7 @@ async function fetchTmdbCatalog(): Promise<Title[]> {
 }
 
 export function CatalogProvider({ children }: { children: ReactNode }) {
-  const [catalog, setCatalog] = useState(fallbackCatalog);
+  const [catalog, setCatalog] = useState<Title[]>([]);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [error, setError] = useState<string | null>(null);
 
@@ -107,7 +107,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
 
       if (cancelled) return;
       const merged = mergeCatalog(databaseCatalog, tmdbCatalog);
-      setCatalog(merged.length ? merged : fallbackCatalog);
+      const allowDemoFallback = import.meta.env.VITE_APP_ENV !== "production";
+      setCatalog(merged.length ? merged : (allowDemoFallback ? fallbackCatalog : []));
+      if (!merged.length && !allowDemoFallback) setError("No production catalogue is available yet.");
       setLoading(false);
     }
 
