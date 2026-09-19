@@ -11,7 +11,7 @@ function json(body: unknown, status = 200) {
 }
 
 function integer(value: string | null) {
-  if (!value || !/^\\d+$/.test(value)) return null;
+  if (!value || !/^\d+$/.test(value)) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
