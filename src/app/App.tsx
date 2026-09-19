@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, Clock3, Info, Play, Plus, Search, Sparkles, House, Clapperboard, Tv2, UserRound,
   X, Check, Film, UserCircle2
 } from "lucide-react";
-import { catalog } from "../data/catalog";
+import { CatalogProvider, useCatalog } from "../lib/catalog-context";
 import { findTitle, formatRuntime, searchTitles } from "../lib/catalog";
 import type { Title } from "../types/catalog";
 import MediaLibrary from "../pages/MediaLibrary";
@@ -94,6 +94,7 @@ function Hero({ title }: { title: Title }) {
 }
 
 function Home() {
+  const { catalog } = useCatalog();
   const featured = catalog.find(t => t.featured) ?? catalog[0];
   const movies = catalog.filter(t => t.type === "movie");
   const series = catalog.filter(t => t.type === "series");
@@ -109,11 +110,13 @@ function Home() {
 }
 
 function Listing({ type, title }: { type: "movie" | "series"; title?: string }) {
+  const { catalog } = useCatalog();
   const titles = type === "movie" ? catalog.filter(t => t.type === "movie") : catalog.filter(t => t.type === "series");
   return <main className="page"><div className="page-head"><div><span className="eyebrow plain">{type === "movie" ? "MovieLab Cinema" : "Binge-worthy television"}</span><h1>{title ?? (type === "movie" ? "Movies" : "Series")}</h1><p>Explore the MovieLab catalogue.</p></div><div className="filter-pill">{titles.length} titles</div></div><div className="grid">{titles.map(t => <Card key={t.id} title={t}/>)}</div></main>;
 }
 
 function SearchPage() {
+  const { catalog } = useCatalog();
   const { search } = useLocation();
   const query = new URLSearchParams(search).get("q") ?? "";
   const results = useMemo(() => searchTitles(catalog, query), [query]);
@@ -121,6 +124,7 @@ function SearchPage() {
 }
 
 function TitlePage() {
+  const { catalog } = useCatalog();
   const { slug = "" } = useParams();
   const title = findTitle(catalog, slug);
   const [listed, setListed] = useState(false);
@@ -141,5 +145,6 @@ function TitlePage() {
 function MyList() { return <main className="page empty"><div className="empty-icon"><Plus size={28}/></div><h1>Your List</h1><p>Save movies and series here for later.</p><Link className="button button-light" to="/movies">Browse movies</Link></main>; }
 
 export default function App() {
-  return <div className="app"><Header/><Routes><Route path="/" element={<Home/>}/><Route path="/movies" element={<Listing type="movie"/>}/><Route path="/series" element={<Listing type="series"/>}/><Route path="/nigerian-cinema" element={<Listing type="movie" title="Nigerian Cinema"/>}/><Route path="/coming-soon" element={<Listing type="movie" title="New & Trending"/>}/><Route path="/search" element={<SearchPage/>}/><Route path="/title/:slug" element={<TitlePage/>}/><Route path="/my-list" element={<MyList/>}/><Route path="/cms/media" element={<MediaLibrary/>}/><Route path="*" element={<main className="page empty"><h1>Page not found</h1><Link className="button button-light" to="/">Return home</Link></main>}/></Routes><nav className="mobile-nav" aria-label="Mobile navigation"><Link to="/" className={location.pathname === "/" ? "active" : ""}><House size={18}/><span>Home</span></Link><Link to="/movies"><Clapperboard size={18}/><span>Movies</span></Link><Link to="/series"><Tv2 size={18}/><span>Series</span></Link><Link to="/nigerian-cinema"><span className="mobile-naija">NG</span><span>Nigerian</span></Link><Link to="/my-list"><UserRound size={18}/><span>My List</span></Link></nav></div>;
+  const location = useLocation();
+  return <CatalogProvider><div className="app"><Header/><Routes><Route path="/" element={<Home/>}/><Route path="/movies" element={<Listing type="movie"/>}/><Route path="/series" element={<Listing type="series"/>}/><Route path="/nigerian-cinema" element={<Listing type="movie" title="Nigerian Cinema"/>}/><Route path="/coming-soon" element={<Listing type="movie" title="New & Trending"/>}/><Route path="/search" element={<SearchPage/>}/><Route path="/title/:slug" element={<TitlePage/>}/><Route path="/my-list" element={<MyList/>}/><Route path="/cms/media" element={<MediaLibrary/>}/><Route path="*" element={<main className="page empty"><h1>Page not found</h1><Link className="button button-light" to="/">Return home</Link></main>}/></Routes><nav className="mobile-nav" aria-label="Mobile navigation"><Link to="/" className={location.pathname === "/" ? "active" : ""}><House size={18}/><span>Home</span></Link><Link to="/movies"><Clapperboard size={18}/><span>Movies</span></Link><Link to="/series"><Tv2 size={18}/><span>Series</span></Link><Link to="/nigerian-cinema"><span className="mobile-naija">NG</span><span>Nigerian</span></Link><Link to="/my-list"><UserRound size={18}/><span>My List</span></Link></nav></div></CatalogProvider>;
 }
