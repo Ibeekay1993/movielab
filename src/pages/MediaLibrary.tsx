@@ -51,8 +51,8 @@ export default function MediaLibrary() {
         <label>Episode ID <span className="optional">(leave blank for movies)</span><input value={episodeId} onChange={e=>setEpisodeId(e.target.value)} placeholder="UUID from episodes"/></label>
         <label>Rights status<select value={rights} onChange={e=>setRights(e.target.value as typeof rights)}><option value="unknown">Unknown — not playable</option><option value="authorized">Authorized</option><option value="licensed">Licensed</option></select></label>
       </div>
-      <button className="button button-light upload-button" onClick={upload} disabled={!file || (!titleId&&!episodeId) || Boolean(status && progress<100)}><UploadCloud size={17}/>{status&&progress<100 ? \`Uploading \${progress}%\` : "Upload media"}</button>
-      {progress>0&&<div className="progress-track"><i style={{width:\`\${progress}%\`}}/></div>}
+      <button className="button button-light upload-button" onClick={upload} disabled={!file || (!titleId&&!episodeId) || Boolean(status && progress<100)}><UploadCloud size={17}/>{status&&progress<100 ? "Uploading " + progress + "%" : "Upload media"}</button>
+      {progress>0&&<div className="progress-track"><i style={{width: progress + "%"}}/></div>}
       {status&&<p className="upload-status"><LoaderCircle size={15}/>{status}</p>}
       {error&&<p className="upload-error"><AlertCircle size={15}/>{error}</p>}
     </section>
