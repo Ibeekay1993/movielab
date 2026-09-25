@@ -17,6 +17,7 @@ insert into public.source_connectors
 values
 ('telegram','Telegram','media',true,true),
 ('movielab_upload','MovieLab CMS Upload','media',true,true),
+('gofile','GoFile','media',true,true),
 ('tmdb','TMDB','metadata',true,true),
 ('tvmaze','TVmaze','metadata',true,true),
 ('omdb','OMDb','metadata',true,true),
@@ -30,6 +31,7 @@ on conflict (connector_key) do update set
  updated_at=now();
 
 alter table public.source_connectors enable row level security;
+drop policy if exists "enabled_source_connectors_read" on public.source_connectors;
 create policy "enabled_source_connectors_read" on public.source_connectors for select using (enabled=true);
 create index if not exists source_connectors_class_idx on public.source_connectors(source_class,enabled);
 
@@ -53,17 +55,35 @@ stable
 security definer
 set search_path = public
 as $$
-  select ma.id, ma.provider_type, ma.playback_id, ma.playback_url, ma.quality_label, ma.mime_type
+  select
+    ma.id,
+    ma.provider_type,
+    ma.playback_id,
+    ma.playback_url,
+    ma.quality_label,
+    ma.mime_type
   from public.media_assets ma
   where ma.active = true
     and ma.processing_status = 'ready'
     and ma.rights_status in ('authorized','licensed')
-    and ((p_episode_id is not null and ma.episode_id = p_episode_id)
-      or (p_episode_id is null and ma.title_id = p_title_id))
+    and (
+      (p_episode_id is not null and ma.episode_id = p_episode_id)
+      or
+      (p_episode_id is null and ma.title_id = p_title_id)
+    )
     and exists (
       select 1
       from public.rights r
-      where r.title_id = coalesce(ma.title_id, (select e.season_id from public.episodes e where e.id=ma.episode_id limit 1))
+      where r.title_id = coalesce(
+        ma.title_id,
+        (
+          select s.title_id
+          from public.episodes e
+          join public.seasons s on s.id = e.season_id
+          where e.id = ma.episode_id
+          limit 1
+        )
+      )
         and r.territory_code = upper(p_territory)
         and r.rights_type = 'streaming'
         and r.status = 'active'
@@ -71,10 +91,13 @@ as $$
         and (r.ends_at is null or r.ends_at > now())
     )
   order by
-    case when ma.quality_label ilike '%1080%' then 1
-         when ma.quality_label ilike '%720%' then 2
-         when ma.quality_label ilike '%480%' then 3
-         else 9 end,
+    case
+      when ma.quality_label ilike '%2160%' or ma.quality_label ilike '%4k%' then 1
+      when ma.quality_label ilike '%1080%' then 2
+      when ma.quality_label ilike '%720%' then 3
+      when ma.quality_label ilike '%480%' then 4
+      else 9
+    end,
     ma.created_at desc;
 $$;
 
