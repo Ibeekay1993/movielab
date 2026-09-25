@@ -67,7 +67,7 @@ export default function MediaLibrary() {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", supabaseUrl.replace(/\/$/, "") + "/functions/v1/gofile-upload");
       xhr.setRequestHeader("Authorization", "Bearer " + sessionToken);
-      xhr.setRequestHeader("apikey", import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "");
+      xhr.setRequestHeader("apikey", import.meta.env.VITE_SUPABASE_ANON_KEY ?? "");
       xhr.setRequestHeader("x-movielab-title-id", titleId);
       xhr.setRequestHeader("x-movielab-episode-id", episodeId);
       xhr.setRequestHeader("x-movielab-rights-status", rights);
