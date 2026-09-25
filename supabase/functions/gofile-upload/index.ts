@@ -5,10 +5,16 @@ const admin = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
+const cors = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type, x-movielab-title-id, x-movielab-episode-id, x-movielab-rights-status, x-movielab-quality, x-movielab-filename, x-movielab-mime-type",
+  "access-control-allow-methods": "POST, OPTIONS",
+};
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { ...cors, "content-type": "application/json" },
   });
 
 async function requireAdmin(req: Request) {
@@ -38,6 +44,7 @@ function safeHeader(value: string | null, fallback: string) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ ok: false, error: "Method Not Allowed" }, 405);
 
   try {
@@ -65,15 +72,14 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Invalid rights_status" }, 400);
     }
 
-    const uploadHeaders = new Headers();
-    uploadHeaders.set("Authorization", "Bearer " + token);
-    uploadHeaders.set("Content-Type", contentType);
-
-    // The request body is forwarded as a stream. MovieLab never buffers the video
-    // in Supabase Edge Functions and never exposes the GoFile token to the browser.
+    // The multipart body is streamed directly to GoFile. MovieLab does not buffer
+    // the video in the Edge Function and the GoFile token never reaches the browser.
     const uploadResponse = await fetch("https://upload.gofile.io/uploadfile", {
       method: "POST",
-      headers: uploadHeaders,
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": contentType,
+      },
       body: req.body,
     });
 
@@ -94,8 +100,8 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "GoFile returned no file ID" }, 502);
     }
 
-    // Direct links are a GoFile Premium API feature. If unavailable, keep the
-    // asset recorded but do not mark it playable.
+    // Direct links are a GoFile Premium API feature. If unavailable, the asset
+    // remains recorded but is not exposed as playable media.
     let playbackUrl: string | null = null;
     let directLinkId: string | null = null;
     const allowedDomain = Deno.env.get("GOFILE_ALLOWED_DOMAIN") ?? "moviescan.netlify.app";
@@ -114,8 +120,12 @@ Deno.serve(async (req) => {
 
     const directPayload = await directResponse.json().catch(() => null);
     if (directResponse.ok && directPayload?.status === "ok") {
-      playbackUrl = directPayload.data?.directLink ?? null;
-      directLinkId = directPayload.data?.id ?? null;
+      playbackUrl = typeof directPayload.data?.directLink === "string"
+        ? directPayload.data.directLink
+        : null;
+      directLinkId = typeof directPayload.data?.id === "string"
+        ? directPayload.data.id
+        : null;
     }
 
     const { data: asset, error } = await admin
@@ -127,13 +137,14 @@ Deno.serve(async (req) => {
         provider_asset_id: providerAssetId,
         playback_id: directLinkId,
         playback_url: playbackUrl,
+        quality_label: qualityLabel,
+        mime_type: mimeType,
         processing_status: playbackUrl ? "ready" : "processing",
         rights_status: rightsStatus,
         source_name: "GoFile",
         active: Boolean(playbackUrl && rightsStatus !== "unknown"),
         metadata: {
           filename,
-          mime_type: mimeType,
           download_page: downloadPage,
           uploaded_by: user.id,
           allowed_domain: allowedDomain,
