@@ -17,6 +17,7 @@ insert into public.source_connectors
 values
 ('telegram','Telegram','media',true,true),
 ('movielab_upload','MovieLab CMS Upload','media',true,true),
+('gofile','GoFile','media',true,true),
 ('tmdb','TMDB','metadata',true,true),
 ('tvmaze','TVmaze','metadata',true,true),
 ('omdb','OMDb','metadata',true,true),
